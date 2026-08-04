@@ -318,7 +318,7 @@ function DriftMonitor() {
                 <div className="flex items-center gap-2">
                   {watch.last_checked_at && (
                     <span className="font-mono text-[10px] text-[var(--ink-faint)]">
-                      {new Date(watch.last_checked_at).toLocaleString()}
+                      {new Date(watch.last_checked_at).toUTCString()}
                     </span>
                   )}
                   <button
