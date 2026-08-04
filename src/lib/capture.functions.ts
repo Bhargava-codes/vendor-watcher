@@ -55,29 +55,19 @@ export const runWatch = createServerFn({ method: "POST" })
       url = new URL(url, requestUrl.origin).toString();
     }
 
-    // Special case: the mock changelog is served by the app itself; skip HTTP.
-    let markdown: string;
-    let finalUrl = url;
-    if (watch.url === "/mock/deepgram-changelog") {
-      const version = 2; // simulate the "changed" version on every run after baseline
-      markdown = getMockContent(version);
-      finalUrl = `${url}?v=${version}`;
-      feed.push("extracting clean text");
-    } else {
-      const fetchResult = await fetchPageMarkdown(url, watch.use_firecrawl);
-      if (!fetchResult.ok) {
-        return {
-          status: "error",
-          diff: null,
-          changes: null,
-          feed: [...feed, fetchResult.reason],
-          error: fetchResult.reason,
-        };
-      }
-      markdown = fetchResult.markdown;
-      finalUrl = fetchResult.finalUrl;
-      feed.push("extracting clean text");
+    feed.push("extracting clean text");
+    const fetchResult = await fetchPageMarkdown(url, watch.use_firecrawl);
+    if (!fetchResult.ok) {
+      return {
+        status: "error",
+        diff: null,
+        changes: null,
+        feed: [...feed, fetchResult.reason],
+        error: fetchResult.reason,
+      };
     }
+    const markdown = fetchResult.markdown;
+    const finalUrl = fetchResult.finalUrl;
 
     feed.push("hashing content");
     const contentHash = hashContent(markdown);
