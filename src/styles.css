@@ -82,6 +82,23 @@
 
 :root {
   --radius: 0.625rem;
+
+  /* Dependency Drift Monitor palette */
+  --base: #0e1620;
+  --panel: #151f2b;
+  --panel-2: #101925;
+  --line: #243244;
+  --ink: #e7eef5;
+  --ink-dim: #8698ac;
+  --ink-faint: #5c6c7e;
+  --beacon: #4fd1c5;
+  --ok: #5fd08a;
+  --p0: #f0616d;
+  --p1: #f0a742;
+  --p2: #4fb3d9;
+  --p3: #6b7a8d;
+  --noise: #3b4757;
+
   --background: oklch(1 0 0);
   --foreground: oklch(0.129 0.042 264.695);
   --card: oklch(1 0 0);
