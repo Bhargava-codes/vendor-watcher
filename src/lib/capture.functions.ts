@@ -232,7 +232,6 @@ export const resetMockBaseline = createServerFn({ method: "POST" }).handler(asyn
     watch_id: watch.id,
     content: baselineMarkdown,
     content_hash: "baseline-v1",
-    final_url: "/mock/deepgram-changelog?v=1",
   });
   await supabaseAdmin
     .from("watches")
