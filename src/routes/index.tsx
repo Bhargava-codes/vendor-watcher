@@ -217,6 +217,7 @@ function DriftMonitor() {
       if (result.ok) {
         setFeed((f) => [...f, "baseline restored — run the watch again to detect change"]);
         setTrail((t) => ["demo reset · baseline restored", ...t]);
+        await queryClient.invalidateQueries({ queryKey: ["watches"] });
       } else {
         setError(result.error);
       }
