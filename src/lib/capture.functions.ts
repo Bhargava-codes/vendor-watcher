@@ -55,19 +55,30 @@ export const runWatch = createServerFn({ method: "POST" })
       url = new URL(url, requestUrl.origin).toString();
     }
 
-    feed.push("extracting clean text");
-    const fetchResult = await fetchPageMarkdown(url, watch.use_firecrawl);
-    if (!fetchResult.ok) {
-      return {
-        status: "error",
-        diff: null,
-        changes: null,
-        feed: [...feed, fetchResult.reason],
-        error: fetchResult.reason,
-      };
+    // Demo shortcut: the mock changelog always simulates the "changed" version so the
+    // capture engine can demonstrate diff + classification on every run after a reset.
+    let markdown: string;
+    let finalUrl = url;
+    if (watch.url === "/mock/deepgram-changelog") {
+      const version = 2;
+      markdown = getMockContent(version);
+      finalUrl = `${url}?v=${version}`;
+      feed.push("extracting clean text");
+    } else {
+      const fetchResult = await fetchPageMarkdown(url, watch.use_firecrawl);
+      if (!fetchResult.ok) {
+        return {
+          status: "error",
+          diff: null,
+          changes: null,
+          feed: [...feed, fetchResult.reason],
+          error: fetchResult.reason,
+        };
+      }
+      markdown = fetchResult.markdown;
+      finalUrl = fetchResult.finalUrl;
+      feed.push("extracting clean text");
     }
-    const markdown = fetchResult.markdown;
-    const finalUrl = fetchResult.finalUrl;
 
     feed.push("hashing content");
     const contentHash = hashContent(markdown);
