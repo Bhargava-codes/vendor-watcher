@@ -211,6 +211,22 @@ function DriftMonitor() {
     setFlagged([]);
     setActiveWatchId(null);
     setFeed(["resetting demo baseline for Deepgram"]);
+    try {
+      const result = await resetMockBaselineFn();
+      if (result.ok) {
+        setFeed((f) => [...f, "baseline restored — run the watch again to detect change"]);
+        setTrail((t) => ["demo reset · baseline restored", ...t]);
+      } else {
+        setError(result.error);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Reset failed.");
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const tallies: { p: Priority; n: number }[] = (["P0", "P1", "P2", "P3", "noise"] as Priority[])
     .map((p) => ({ p, n: (changes ?? []).filter((c) => c.priority === p).length }))
     .filter((t) => t.n > 0 || t.p !== "P3");
 
