@@ -206,6 +206,7 @@ function DriftMonitor() {
   };
 
   const resetDemo = async () => {
+    console.log("[resetDemo] clicked");
     setRunning(true);
     setError(null);
     setChanges(null);
@@ -213,7 +214,9 @@ function DriftMonitor() {
     setActiveWatchId(null);
     setFeed(["resetting demo baseline for Deepgram"]);
     try {
+      console.log("[resetDemo] calling resetMockBaselineFn");
       const result = await resetMockBaselineFn();
+      console.log("[resetDemo] result", result);
       if (result.ok) {
         setFeed((f) => [...f, "baseline restored — run the watch again to detect change"]);
         setTrail((t) => ["demo reset · baseline restored", ...t]);
@@ -222,6 +225,7 @@ function DriftMonitor() {
         setError(result.error);
       }
     } catch (err) {
+      console.error("[resetDemo] error", err);
       setError(err instanceof Error ? err.message : "Reset failed.");
     } finally {
       setRunning(false);
