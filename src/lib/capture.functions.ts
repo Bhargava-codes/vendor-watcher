@@ -158,12 +158,14 @@ export const runWatch = createServerFn({ method: "POST" })
 
     feed.push(`diff: ${hunks} hunk${hunks === 1 ? "" : "s"} — classifying`);
 
+    console.log(`[runWatch] calling classifier for ${watch.vendor} with diff length ${diff.length}`);
     const classifyResult = await classifyDiff({
       diff,
       vendorHint: watch.vendor,
       manifest: USAGE_MANIFEST,
       today: now.slice(0, 10),
     });
+    console.log(`[runWatch] classifier result: ok=${classifyResult.ok}`);
 
     let changes: Change[] = [];
     if (classifyResult.ok) {
