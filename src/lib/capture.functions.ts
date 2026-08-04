@@ -32,7 +32,9 @@ export type RunWatchResult =
 export const runWatch = createServerFn({ method: "POST" })
   .validator((input) => RunWatchSchema.parse(input))
   .handler(async ({ data }): Promise<RunWatchResult> => {
+    console.log("[runWatch] starting", data.watch_id);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    console.log("[runWatch] imported supabaseAdmin");
     const { USAGE_MANIFEST } = await import("@/lib/drift-data");
     const { classifyDiff } = await import("@/lib/classifier.server");
 
@@ -41,6 +43,7 @@ export const runWatch = createServerFn({ method: "POST" })
       .select("*")
       .eq("id", data.watch_id)
       .single();
+    console.log("[runWatch] watch loaded", watch?.vendor);
 
     if (!watch) {
       return { status: "error", diff: null, changes: null, feed: ["watch not found"], error: "Watch not found." };
