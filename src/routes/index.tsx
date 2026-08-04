@@ -54,6 +54,7 @@ function sortChanges(changes: Change[]) {
 }
 
 function DriftMonitor() {
+  const queryClient = useQueryClient();
   const { data: watches } = useSuspenseQuery(watchesQueryOptions);
   const runWatchFn = useServerFn(runWatch);
   const resetMockBaselineFn = useServerFn(resetMockBaseline);
