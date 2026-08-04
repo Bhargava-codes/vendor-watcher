@@ -263,6 +263,14 @@ function DriftMonitor() {
             >
               {running ? "running…" : "Run all watches"}
             </button>
+            <button
+              type="button"
+              onClick={resetDemo}
+              disabled={running}
+              className="rounded-md border border-[var(--line)] px-4 py-2 font-mono text-[12px] font-bold tracking-wide text-[var(--ink-dim)] transition-opacity hover:text-[var(--ink)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--beacon)] disabled:opacity-50"
+            >
+              {running ? "running…" : "Reset demo"}
+            </button>
           </div>
         </header>
 
