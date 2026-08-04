@@ -67,8 +67,10 @@ export const runWatch = createServerFn({ method: "POST" })
       markdown = getMockContent(version);
       finalUrl = `${url}?v=${version}`;
       feed.push("extracting clean text");
+      console.log("[runWatch] mock content loaded, length", markdown.length);
     } else {
       const fetchResult = await fetchPageMarkdown(url, watch.use_firecrawl);
+      console.log("[runWatch] fetch result ok=", fetchResult.ok);
       if (!fetchResult.ok) {
         return {
           status: "error",
@@ -85,6 +87,7 @@ export const runWatch = createServerFn({ method: "POST" })
 
     feed.push("hashing content");
     const contentHash = hashContent(markdown);
+    console.log("[runWatch] hash", contentHash);
 
     feed.push("comparing to last snapshot");
     const { data: lastSnapshot } = await supabaseAdmin
@@ -94,6 +97,7 @@ export const runWatch = createServerFn({ method: "POST" })
       .order("fetched_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    console.log("[runWatch] last snapshot", lastSnapshot?.content_hash);
 
     const now = new Date().toISOString();
 
