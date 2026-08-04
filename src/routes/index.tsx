@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { ChangeCard, priorityColor } from "@/components/drift/ChangeCard";
 import {
   FEED_LINES,
@@ -11,6 +13,12 @@ import {
   type Change,
   type Priority,
 } from "@/lib/drift-data";
+import { listWatches, runWatch, type RunWatchResult, type WatchRow } from "@/lib/capture.functions";
+
+const watchesQueryOptions = queryOptions({
+  queryKey: ["watches"],
+  queryFn: () => listWatches(),
+});
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -32,6 +40,7 @@ export const Route = createFileRoute("/")({
     ],
   }),
   component: DriftMonitor,
+  loader: ({ context }) => context.queryClient.ensureQueryData(watchesQueryOptions),
 });
 
 function sortChanges(changes: Change[]) {
@@ -45,6 +54,8 @@ function sortChanges(changes: Change[]) {
 }
 
 function DriftMonitor() {
+  const { data: watches } = useSuspenseQuery(watchesQueryOptions);
+  const runWatchFn = useServerFn(runWatch);
   const [feed, setFeed] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
   const [changes, setChanges] = useState<Change[] | null>(null);
@@ -53,6 +64,7 @@ function DriftMonitor() {
   const [trail, setTrail] = useState<string[]>([]);
   const [diff, setDiff] = useState(SAMPLE_DIFF);
   const [error, setError] = useState<string | null>(null);
+  const [activeWatchId, setActiveWatchId] = useState<string | null>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
@@ -79,15 +91,16 @@ function DriftMonitor() {
     });
   }, []);
 
-  const runWatch = () => {
+  const runSeedReport = () => {
     setRunning(true);
     setError(null);
     setChanges(null);
     setFlagged([]);
+    setActiveWatchId(null);
     streamFeed(FEED_LINES, () => {
       setChanges(sortChanges(SEED_CHANGES));
       setRunning(false);
-      setTrail((t) => [`watch run · ${SEED_CHANGES.length} changes classified`, ...t]);
+      setTrail((t) => [`seed report · ${SEED_CHANGES.length} changes classified`, ...t]);
     });
   };
 
@@ -100,6 +113,7 @@ function DriftMonitor() {
     setError(null);
     setChanges(null);
     setFlagged([]);
+    setActiveWatchId(null);
     streamFeed(LIVE_FEED_LINES, () => {});
     try {
       const res = await fetch("/api/classify", {
@@ -124,6 +138,71 @@ function DriftMonitor() {
     }
   };
 
+  const runWatchById = async (watch: WatchRow) => {
+    setRunning(true);
+    setError(null);
+    setChanges(null);
+    setFlagged([]);
+    setActiveWatchId(watch.id);
+    setFeed([]);
+    try {
+      const result = await runWatchFn({ data: { watch_id: watch.id } });
+      streamFeed(result.feed, () => {});
+      if (result.status === "changed") {
+        const sorted = sortChanges(result.changes);
+        setChanges(sorted);
+        setTrail((t) => [
+          `${watch.vendor} watch · ${sorted.length} changes classified`,
+          ...t,
+        ]);
+      } else if (result.status === "error") {
+        setError(result.error);
+      } else {
+        setTrail((t) => [
+          `${watch.vendor} watch · ${result.status.replace("_", " ")}`,
+          ...t,
+        ]);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Watch run failed.");
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const runAllWatches = async () => {
+    setRunning(true);
+    setError(null);
+    setChanges(null);
+    setFlagged([]);
+    setActiveWatchId(null);
+    setFeed(["starting multi-vendor run", `fetching ${watches.length} vendor pages`]);
+    const results: { watch: WatchRow; result: RunWatchResult }[] = [];
+    for (const watch of watches) {
+      try {
+        const result = await runWatchFn({ data: { watch_id: watch.id } });
+        results.push({ watch, result });
+        setFeed((f) => [...f, `${watch.vendor}: ${result.status.replace("_", " ")}`]);
+      } catch (err) {
+        setFeed((f) => [...f, `${watch.vendor}: error`]);
+      }
+    }
+    setFeed((f) => [...f, "done"]);
+    const changed = results.filter((r) => r.result.status === "changed");
+    if (changed.length > 0) {
+      const allChanges = changed.flatMap((r) => r.result.changes ?? []);
+      const sorted = sortChanges(allChanges);
+      setChanges(sorted);
+      setTrail((t) => [
+        `run all · ${changed.length} changed, ${sorted.length} changes classified`,
+        ...t,
+      ]);
+    } else {
+      setTrail((t) => ["run all · no changes detected", ...t]);
+    }
+    setRunning(false);
+  };
+
   const tallies: { p: Priority; n: number }[] = (["P0", "P1", "P2", "P3", "noise"] as Priority[])
     .map((p) => ({ p, n: (changes ?? []).filter((c) => c.priority === p).length }))
     .filter((t) => t.n > 0 || t.p !== "P3");
@@ -144,37 +223,89 @@ function DriftMonitor() {
               usage — before a change lands in a live call.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={runWatch}
-            disabled={running}
-            className="rounded-md bg-[var(--beacon)] px-4 py-2 font-mono text-[12px] font-bold tracking-wide text-[var(--base)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--beacon)] disabled:opacity-50"
-          >
-            {running ? "running…" : "Run watch"}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={runSeedReport}
+              disabled={running}
+              className="rounded-md border border-[var(--beacon)] px-4 py-2 font-mono text-[12px] font-bold tracking-wide text-[var(--beacon)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--beacon)] disabled:opacity-50"
+            >
+              {running ? "running…" : "Run seed report"}
+            </button>
+            <button
+              type="button"
+              onClick={runAllWatches}
+              disabled={running}
+              className="rounded-md bg-[var(--beacon)] px-4 py-2 font-mono text-[12px] font-bold tracking-wide text-[var(--base)] transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--beacon)] disabled:opacity-50"
+            >
+              {running ? "running…" : "Run all watches"}
+            </button>
+          </div>
         </header>
 
-        <section aria-label="Watched vendors" className="flex flex-wrap gap-2">
-          {WATCHED_VENDORS.map((v) => (
-            <span
-              key={v.name}
-              className="rounded-full border border-[var(--line)] bg-[var(--panel)] px-3 py-1.5 font-mono text-[11px] text-[var(--ink-dim)]"
-            >
-              <span className="text-[var(--ink)]">{v.name}</span>{" "}
-              <span className="text-[var(--ink-faint)]">
-                {v.role} · {v.position}
-              </span>
+        <section aria-label="Watched vendors" className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-mono text-[11px] tracking-[0.18em] text-[var(--ink-faint)]">
+              WATCHES
+            </h2>
+            <span className="font-mono text-[10px] text-[var(--ink-faint)]">
+              {watches.length} watches · server-side fetch · hash cost gate
             </span>
-          ))}
+          </div>
+          <div className="grid gap-2">
+            {watches.map((watch) => (
+              <div
+                key={watch.id}
+                className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--line)] bg-[var(--panel)] p-3 ${
+                  activeWatchId === watch.id ? "ring-1 ring-[var(--beacon)]" : ""
+                }`}
+              >
+                <div className="flex flex-col gap-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-display text-[14px] font-medium text-[var(--ink)]">
+                      {watch.vendor}
+                    </span>
+                    <span className="font-mono text-[10px] text-[var(--ink-dim)]">
+                      {watch.dependency_position}
+                    </span>
+                    {watch.last_status && (
+                      <span
+                        className="rounded px-1.5 py-[2px] font-mono text-[9px] tracking-wide"
+                        style={{
+                          backgroundColor: `var(--${statusColor(watch.last_status)})`,
+                          color: "var(--base)",
+                        }}
+                      >
+                        {watch.last_status.replace("_", " ")}
+                      </span>
+                    )}
+                  </div>
+                  <span className="font-mono text-[10px] text-[var(--ink-faint)]">{watch.url}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {watch.last_checked_at && (
+                    <span className="font-mono text-[10px] text-[var(--ink-faint)]">
+                      {new Date(watch.last_checked_at).toLocaleString()}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => runWatchById(watch)}
+                    disabled={running}
+                    className="rounded border border-[var(--line)] px-2.5 py-1 font-mono text-[10px] text-[var(--ink-dim)] transition-colors hover:border-[var(--beacon)] hover:text-[var(--beacon)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--beacon)] disabled:opacity-50"
+                  >
+                    Run watch
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
 
-        <section
-          aria-label="Status feed"
-          className="min-h-[132px] rounded-lg border border-[var(--line)] bg-[var(--panel-2)] p-4 font-mono text-[12px] leading-6"
-        >
+        <section aria-label="Status feed" className="min-h-[132px] rounded-lg border border-[var(--line)] bg-[var(--panel-2)] p-4 font-mono text-[12px] leading-6">
           {feed.length === 0 && (
             <p className="text-[var(--ink-faint)]">
-              idle — hit Run watch<span className="drift-cursor">▊</span>
+              idle — hit Run watch or Run seed report<span className="drift-cursor">▊</span>
             </p>
           )}
           {feed.map((line, i) => (
@@ -243,34 +374,31 @@ function DriftMonitor() {
                 ))}
               </section>
             )}
-
-            {trail.length > 0 && (
-              <section
-                aria-label="Action trail"
-                className="rounded-lg border border-[var(--line)] bg-[var(--panel)] p-4"
-              >
-                <h2 className="font-mono text-[11px] tracking-[0.18em] text-[var(--ink-faint)]">
-                  ACTION TRAIL
-                </h2>
-                <ul className="mt-2 flex flex-col gap-1">
-                  {trail.map((t, i) => (
-                    <li key={`${t}-${i}`} className="font-mono text-[11.5px] text-[var(--ink-dim)]">
-                      · {t}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
           </>
+        )}
+
+        {trail.length > 0 && (
+          <section className="rounded-lg border border-[var(--line)] bg-[var(--panel)] p-4">
+            <h2 className="font-mono text-[11px] tracking-[0.18em] text-[var(--ink-faint)]">
+              ACTION TRAIL
+            </h2>
+            <ul className="mt-2 flex flex-col gap-1">
+              {trail.map((t, i) => (
+                <li key={`${t}-${i}`} className="font-mono text-[11.5px] text-[var(--ink-dim)]">
+                  · {t}
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         <section className="rounded-lg border border-[var(--line)] bg-[var(--panel)] p-4 sm:p-5">
           <h2 className="font-display text-[16px] font-medium text-[var(--ink)]">
-            Classify a real diff
+            Classify a real diff (fallback)
           </h2>
           <p className="mt-1 text-[13px] text-[var(--ink-dim)]">
-            Paste a before/after chunk from a vendor changelog. It runs the live triage prompt
-            against the usage manifest and today&apos;s date.
+            The primary path is now URL → auto-diff → triage. This box remains for dev/debug when you
+            want to paste a before/after chunk directly.
           </p>
           <label htmlFor="diff" className="sr-only">
             Vendor page diff
@@ -293,7 +421,7 @@ function DriftMonitor() {
               {running ? "classifying…" : "Classify diff"}
             </button>
             <span className="font-mono text-[11px] text-[var(--ink-faint)]">
-              live LLM call · seed report stays available via Run watch
+              live LLM call · seed report stays available via Run seed report
             </span>
           </div>
         </section>
@@ -311,4 +439,19 @@ function DriftMonitor() {
       </div>
     </main>
   );
+}
+
+function statusColor(status: string): string {
+  switch (status) {
+    case "changed":
+      return "p0";
+    case "baseline":
+      return "beacon";
+    case "no_change":
+      return "ok";
+    case "error":
+      return "p0";
+    default:
+      return "noise";
+  }
 }
