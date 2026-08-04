@@ -9,16 +9,16 @@ import {
   PRIORITY_ORDER,
   SAMPLE_DIFF,
   SEED_CHANGES,
-  WATCHED_VENDORS,
   type Change,
   type Priority,
 } from "@/lib/drift-data";
-import { listWatches, runWatch, type RunWatchResult, type WatchRow } from "@/lib/capture.functions";
+import { listWatches, resetMockBaseline, runWatch, type RunWatchResult, type WatchRow } from "@/lib/capture.functions";
 
 const watchesQueryOptions = queryOptions({
   queryKey: ["watches"],
   queryFn: () => listWatches(),
 });
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
