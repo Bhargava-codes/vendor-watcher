@@ -219,22 +219,25 @@ export const resetMockBaseline = createServerFn({ method: "POST" }).handler(asyn
     .select("id")
     .eq("url", "/mock/deepgram-changelog")
     .single();
+  console.log("[resetMockBaseline] watch found", watch?.id);
 
   if (!watch) {
     return { ok: false as const, error: "Mock watch not found." };
   }
 
   // Delete all snapshots after the seeded baseline (the one with the literal hash 'baseline-v1').
-  await supabaseAdmin
+  const { error: delSnapError } = await supabaseAdmin
     .from("snapshots")
     .delete()
     .eq("watch_id", watch.id)
     .neq("content_hash", "baseline-v1");
+  console.log("[resetMockBaseline] delete snapshots error", delSnapError);
 
-  await supabaseAdmin
+  const { error: delChangeError } = await supabaseAdmin
     .from("changes")
     .delete()
     .eq("watch_id", watch.id);
+  console.log("[resetMockBaseline] delete changes error", delChangeError);
 
   await supabaseAdmin
     .from("watches")
