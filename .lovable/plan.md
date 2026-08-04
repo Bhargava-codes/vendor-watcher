@@ -29,4 +29,4 @@ Scheduled/cron polling, multi-URL crawl, webhook/ticket delivery, visual diffing
 
 ## What I need from you
 
-The Firecrawl step needs a connector linked to this project — I'll surface the connect card when we get to that step. Everything else runs on the mock page with no external accounts.
+Nothing for the MVP demo — it runs on the controlled mock page with plain HTTP fetch. If you want the real-vendor changelog proof (§5), I'll need to link the Firecrawl connector to the project so the gateway key is available at runtime. I'll surface that connect card only when we reach that step.
