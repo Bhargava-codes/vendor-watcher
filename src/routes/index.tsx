@@ -204,7 +204,13 @@ function DriftMonitor() {
     setRunning(false);
   };
 
-  const tallies: { p: Priority; n: number }[] = (["P0", "P1", "P2", "P3", "noise"] as Priority[])
+  const resetDemo = async () => {
+    setRunning(true);
+    setError(null);
+    setChanges(null);
+    setFlagged([]);
+    setActiveWatchId(null);
+    setFeed(["resetting demo baseline for Deepgram"]);
     .map((p) => ({ p, n: (changes ?? []).filter((c) => c.priority === p).length }))
     .filter((t) => t.n > 0 || t.p !== "P3");
 
