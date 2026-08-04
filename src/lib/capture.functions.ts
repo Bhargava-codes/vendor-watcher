@@ -203,6 +203,38 @@ export const listWatches = createServerFn({ method: "GET" }).handler(async () =>
   return (data ?? []) as WatchRow[];
 });
 
+export const resetMockBaseline = createServerFn({ method: "POST" }).handler(async () => {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: watch } = await supabaseAdmin
+    .from("watches")
+    .select("id")
+    .eq("url", "/mock/deepgram-changelog")
+    .single();
+
+  if (!watch) {
+    return { ok: false as const, error: "Mock watch not found." };
+  }
+
+  // Delete all snapshots after the seeded baseline (the one with the literal hash 'baseline-v1').
+  await supabaseAdmin
+    .from("snapshots")
+    .delete()
+    .eq("watch_id", watch.id)
+    .neq("content_hash", "baseline-v1");
+
+  await supabaseAdmin
+    .from("changes")
+    .delete()
+    .eq("watch_id", watch.id);
+
+  await supabaseAdmin
+    .from("watches")
+    .update({ last_checked_at: null, last_status: "baseline" })
+    .eq("id", watch.id);
+
+  return { ok: true as const };
+});
+
 export type WatchRow = {
   id: string;
   url: string;
