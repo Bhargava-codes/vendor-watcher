@@ -32,9 +32,7 @@ export type RunWatchResult =
 export const runWatch = createServerFn({ method: "POST" })
   .validator((input) => RunWatchSchema.parse(input))
   .handler(async ({ data }): Promise<RunWatchResult> => {
-    console.log("[runWatch] starting", data.watch_id);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    console.log("[runWatch] imported supabaseAdmin");
     const { USAGE_MANIFEST } = await import("@/lib/drift-data");
     const { classifyDiff } = await import("@/lib/classifier.server");
 
@@ -43,7 +41,6 @@ export const runWatch = createServerFn({ method: "POST" })
       .select("*")
       .eq("id", data.watch_id)
       .single();
-    console.log("[runWatch] watch loaded", watch?.vendor);
 
     if (!watch) {
       return { status: "error", diff: null, changes: null, feed: ["watch not found"], error: "Watch not found." };
@@ -67,10 +64,8 @@ export const runWatch = createServerFn({ method: "POST" })
       markdown = getMockContent(version);
       finalUrl = `${url}?v=${version}`;
       feed.push("extracting clean text");
-      console.log("[runWatch] mock content loaded, length", markdown.length);
     } else {
       const fetchResult = await fetchPageMarkdown(url, watch.use_firecrawl);
-      console.log("[runWatch] fetch result ok=", fetchResult.ok);
       if (!fetchResult.ok) {
         return {
           status: "error",
@@ -87,7 +82,6 @@ export const runWatch = createServerFn({ method: "POST" })
 
     feed.push("hashing content");
     const contentHash = hashContent(markdown);
-    console.log("[runWatch] hash", contentHash);
 
     feed.push("comparing to last snapshot");
     const { data: lastSnapshot } = await supabaseAdmin
@@ -97,7 +91,6 @@ export const runWatch = createServerFn({ method: "POST" })
       .order("fetched_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    console.log("[runWatch] last snapshot", lastSnapshot?.content_hash);
 
     const now = new Date().toISOString();
 
@@ -165,14 +158,12 @@ export const runWatch = createServerFn({ method: "POST" })
 
     feed.push(`diff: ${hunks} hunk${hunks === 1 ? "" : "s"} — classifying`);
 
-    console.log(`[runWatch] calling classifier for ${watch.vendor} with diff length ${diff.length}`);
     const classifyResult = await classifyDiff({
       diff,
       vendorHint: watch.vendor,
       manifest: USAGE_MANIFEST,
       today: now.slice(0, 10),
     });
-    console.log(`[runWatch] classifier result: ok=${classifyResult.ok}`);
 
     let changes: Change[] = [];
     if (classifyResult.ok) {
