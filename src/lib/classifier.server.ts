@@ -80,7 +80,12 @@ Non-substantive records omit severity, deadline_date, days_to_impact.`;
 
 const MODEL = "openai/gpt-5.6-terra";
 
-type ClassifyArgs = { diff: string; vendorHint?: string; manifest: unknown; today: string };
+type ClassifyArgs = {
+  diff: string;
+  vendorHint?: string | undefined;
+  manifest: unknown;
+  today: string;
+};
 
 export async function classifyDiff({ diff, vendorHint, manifest, today }: ClassifyArgs) {
   const apiKey = process.env["LOVABLE_API_KEY"];
