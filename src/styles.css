@@ -178,3 +178,48 @@
     color: var(--color-foreground);
   }
 }
+
+@layer base {
+  body {
+    background-color: var(--base);
+    color: var(--ink);
+    font-family: var(--font-sans);
+  }
+}
+
+@keyframes drift-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes drift-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.drift-cursor {
+  animation: drift-blink 1s step-end infinite;
+}
+
+.drift-rise {
+  animation: drift-rise 320ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drift-cursor,
+  .drift-rise {
+    animation: none !important;
+  }
+}
