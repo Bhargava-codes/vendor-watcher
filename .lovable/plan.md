@@ -24,9 +24,9 @@ Scheduled/cron polling, multi-URL crawl, webhook/ticket delivery, visual diffing
 - **Database**: Lovable Cloud gets enabled and the migration creates `watches`, `snapshots`, `changes`, and `usage_manifest` exactly as specced, with grants + RLS (public read for the demo, writes via the server function). Seeded with the four vendor watches, and the mock watch pre-staged with a baseline snapshot so the first live run already shows a diff.
 - **Extraction**: strip script/style/nav/header/footer/aside and convert to markdown, normalising whitespace — noise layer 1. Hash is SHA-256 of the normalised markdown.
 - **Diff**: line-level unified diff grouped under the nearest markdown heading, ignoring whitespace-only and pure-reorder changes — noise layer 2. Output shape matches what the classifier's `DIFF` already expects, so E2 is untouched.
-- **Firecrawl**: called through the connector gateway from the server function; `changeTracking` output is normalised into the same `{status, diff}` contract so the front end has one code path.
+- **Firecrawl**: only needed for the real-vendor changelog proof (JS-rendered or bot-protected pages). Called through the connector gateway when `use_firecrawl` is true; `changeTracking` output is normalised into the same `{status, diff}` contract. The MVP demo on the mock page uses plain HTTP fetch and works without any connector.
 - Fetch is bounded by a timeout, one retry, and a response-size cap.
 
 ## What I need from you
 
-The Firecrawl step needs a connector linked to this project — I'll surface the connect card when we get to that step. Everything else runs on the mock page with no external accounts.
+Nothing for the MVP demo — it runs on the controlled mock page with plain HTTP fetch. If you want the real-vendor changelog proof (§5), I'll need to link the Firecrawl connector to the project so the gateway key is available at runtime. I'll surface that connect card only when we reach that step.
