@@ -35,11 +35,12 @@ export const Route = createFileRoute("/")({
 });
 
 function sortChanges(changes: Change[]) {
+  const radius = (c: Change) => (typeof c.blast_radius === "number" ? c.blast_radius : 0);
   return [...changes].sort((a, b) => {
     const pa = PRIORITY_ORDER.indexOf(a.priority);
     const pb = PRIORITY_ORDER.indexOf(b.priority);
     if (pa !== pb) return (pa === -1 ? 99 : pa) - (pb === -1 ? 99 : pb);
-    return (b.blast_radius ?? 0) - (a.blast_radius ?? 0);
+    return radius(b) - radius(a);
   });
 }
 
