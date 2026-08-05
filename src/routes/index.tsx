@@ -12,6 +12,8 @@ import {
   resetMockBaseline,
   runWatch,
 } from "@/lib/capture.functions";
+import { feedLineToEntry, trailEntry, type TrailEntry } from "@/lib/agent-trail";
+import { AgentTrailView } from "@/components/driftwatch/AgentTrailView";
 import { Sidebar, type ViewId } from "@/components/driftwatch/Sidebar";
 import { Topbar } from "@/components/driftwatch/Topbar";
 import { InboxView } from "@/components/driftwatch/InboxView";
