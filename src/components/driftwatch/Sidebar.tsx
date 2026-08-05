@@ -6,6 +6,7 @@ import {
   Settings as SettingsIcon,
   HelpCircle,
   Radar,
+  ScrollText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +15,7 @@ export type ViewId =
   | "watches"
   | "vendors"
   | "trends"
+  | "trail"
   | "settings"
   | "how-it-works";
 
@@ -25,6 +27,7 @@ const GROUPS: { label: string; items: { id: ViewId; label: string; icon: typeof 
       { id: "watches", label: "Watches", icon: Eye },
       { id: "vendors", label: "Vendors & usage", icon: Boxes },
       { id: "trends", label: "Trends", icon: TrendingUp },
+      { id: "trail", label: "Agent trail", icon: ScrollText },
     ],
   },
   {
@@ -41,6 +44,7 @@ export const VIEW_TITLE: Record<ViewId, string> = {
   watches: "Watches",
   vendors: "Vendors & usage",
   trends: "Trends",
+  trail: "Agent trail",
   settings: "Settings",
   "how-it-works": "How it works",
 };
@@ -50,6 +54,7 @@ export const VIEW_GROUP: Record<ViewId, string> = {
   watches: "Monitor",
   vendors: "Monitor",
   trends: "Monitor",
+  trail: "Monitor",
   settings: "Workspace",
   "how-it-works": "Workspace",
 };

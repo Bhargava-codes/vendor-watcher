@@ -12,6 +12,8 @@ import {
   resetMockBaseline,
   runWatch,
 } from "@/lib/capture.functions";
+import { feedLineToEntry, trailEntry, type TrailEntry } from "@/lib/agent-trail";
+import { AgentTrailView } from "@/components/driftwatch/AgentTrailView";
 import { Sidebar, type ViewId } from "@/components/driftwatch/Sidebar";
 import { Topbar } from "@/components/driftwatch/Topbar";
 import { InboxView } from "@/components/driftwatch/InboxView";
@@ -52,6 +54,7 @@ function DriftWatchApp() {
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [serverDone, setServerDone] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
+  const [trail, setTrail] = useState<TrailEntry[]>([]);
 
   const queryClient = useQueryClient();
   const list = useServerFn(listWatches);
@@ -75,31 +78,89 @@ function DriftWatchApp() {
     setServerDone(false);
     setSummary(null);
     setLiveError(null);
+    setTrail([]);
+
+    // A new action means the previous one finished, so settle any spinner.
+    const push = (entry: TrailEntry) =>
+      setTrail((t) => [
+        ...t.map((e) => (e.status === "running" ? { ...e, status: "ok" as const } : e)),
+        entry,
+      ]);
 
     try {
       const collected: Change[] = [];
       const errors: string[] = [];
       let ranSomething = false;
 
-      // Real vendor changelogs (Deepgram, ElevenLabs) — dated entry feeds.
       const feeds = watches.filter((w) => w.kind === "dated_feed");
+      const mock = watches.find((w) => w.url === "/mock/deepgram-changelog");
+
+      push(
+        trailEntry(
+          "Plan",
+          `${feeds.length + (mock ? 1 : 0)} target(s) queued: ${feeds.length} dated changelog feed(s)${mock ? " + 1 mock page" : ""}`,
+          "The agent picks a strategy per watch — date-addressed feeds are read entry by entry, plain pages by whole-page snapshot.",
+          "info",
+        ),
+      );
+
+      // Real vendor changelogs (Deepgram, ElevenLabs) — dated entry feeds.
       for (const feedWatch of feeds) {
         ranSomething = true;
+        push(
+          trailEntry(
+            "Visit",
+            `Opening ${feedWatch.vendor} changelog`,
+            "Dated feed — probe the recent date window and follow the vendor's own entry index.",
+            "running",
+            feedWatch.url,
+          ),
+        );
         const result = await run({ data: { watch_id: feedWatch.id } });
+        result.feed.forEach((line) => push(feedLineToEntry(line, feedWatch.url)));
+
         if (result.status === "changed" && result.changes) {
           collected.push(...result.changes);
+          push(
+            trailEntry(
+              "Report",
+              `${result.changes.length} classified change(s) from ${feedWatch.vendor}`,
+              "Added to the inbox, ranked by priority and routed to an owner.",
+              "ok",
+              feedWatch.url,
+            ),
+          );
         } else if (result.status === "error") {
           errors.push(result.error ?? `We couldn't read ${feedWatch.vendor}.`);
         }
       }
 
       // The mock Deepgram page keeps the offline demo repeatable.
-      const mock = watches.find((w) => w.url === "/mock/deepgram-changelog");
       let mockChanges: Change[] = [];
       if (mock) {
         ranSomething = true;
+        push(
+          trailEntry(
+            "Reset",
+            "Restoring the v1 baseline for the mock page",
+            "Keeps the demo repeatable so a change is always detectable on the next visit.",
+            "info",
+            mock.url,
+          ),
+        );
         await reset({ data: undefined });
+        push(
+          trailEntry(
+            "Visit",
+            "Opening the mock changelog page",
+            "Plain page — snapshot the whole document and diff it.",
+            "running",
+            mock.url,
+          ),
+        );
         const result = await run({ data: { watch_id: mock.id } });
+        result.feed.forEach((line) => push(feedLineToEntry(line, mock.url)));
+
         if (result.status === "changed" && result.changes) {
           mockChanges = result.changes;
         } else if (result.status === "error") {
@@ -130,10 +191,23 @@ function DriftWatchApp() {
         setSummary("All done — nothing to check yet.");
       }
 
-      if (errors.length > 0) setLiveError(errors[0] ?? null);
+      if (errors.length > 0) {
+        setLiveError(errors[0] ?? null);
+        errors.forEach((e) =>
+          push(trailEntry("Error", e, "Recorded rather than swallowed — the run continues.", "error")),
+        );
+      }
     } catch {
       setLiveError("Something went wrong on that run. Try again in a moment.");
       setSummary("All done — the run didn't finish cleanly");
+      push(
+        trailEntry(
+          "Error",
+          "The run stopped unexpectedly",
+          "Partial results are kept so the trail still shows how far the agent got.",
+          "error",
+        ),
+      );
     } finally {
       setServerDone(true);
       void queryClient.invalidateQueries({ queryKey: ["watches"] });
@@ -206,6 +280,7 @@ function DriftWatchApp() {
           )}
           {view === "vendors" && <VendorsView />}
           {view === "trends" && <TrendsView changes={changes} />}
+          {view === "trail" && <AgentTrailView entries={trail} />}
           {view === "settings" && <SettingsView />}
           {view === "how-it-works" && <HowItWorksView />}
         </main>
@@ -214,6 +289,7 @@ function DriftWatchApp() {
       <ChangeDrawer change={selected} onClose={() => setSelected(null)} />
       <RunWatchOverlay
         open={overlayOpen}
+        entries={trail}
         serverDone={serverDone}
         summary={summary}
         onClose={closeOverlay}
