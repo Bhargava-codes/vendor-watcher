@@ -33,7 +33,7 @@ The mock Deepgram page stays as-is so the offline demo still works.
 
 Structure supports it: because entries are date-addressed, a daily run only fetches the last day or two and classifies whatever is new — no re-diffing of history, no duplicate rows (guarded by the content hash + entry date).
 
-I'd wire the run to the existing manual "Run watch" button first. A scheduled daily job (cron hitting a public route) is a small follow-up once you confirm the manual path looks right.
+The run stays on the existing manual "Run watch" button — no scheduled job.
 
 ## Technical notes
 
