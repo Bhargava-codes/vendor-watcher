@@ -78,31 +78,84 @@ function DriftWatchApp() {
     setServerDone(false);
     setSummary(null);
     setLiveError(null);
+    setTrail([]);
+
+    const push = (entry: TrailEntry) => setTrail((t) => [...t, entry]);
 
     try {
       const collected: Change[] = [];
       const errors: string[] = [];
       let ranSomething = false;
 
-      // Real vendor changelogs (Deepgram, ElevenLabs) — dated entry feeds.
       const feeds = watches.filter((w) => w.kind === "dated_feed");
+      const mock = watches.find((w) => w.url === "/mock/deepgram-changelog");
+
+      push(
+        trailEntry(
+          "Plan",
+          `${feeds.length + (mock ? 1 : 0)} target(s) queued: ${feeds.length} dated changelog feed(s)${mock ? " + 1 mock page" : ""}`,
+          "The agent picks a strategy per watch — date-addressed feeds are read entry by entry, plain pages by whole-page snapshot.",
+          "info",
+        ),
+      );
+
+      // Real vendor changelogs (Deepgram, ElevenLabs) — dated entry feeds.
       for (const feedWatch of feeds) {
         ranSomething = true;
+        push(
+          trailEntry(
+            "Visit",
+            `Opening ${feedWatch.vendor} changelog`,
+            "Dated feed — probe the recent date window and follow the vendor's own entry index.",
+            "running",
+            feedWatch.url,
+          ),
+        );
         const result = await run({ data: { watch_id: feedWatch.id } });
+        result.feed.forEach((line) => push(feedLineToEntry(line, feedWatch.url)));
+
         if (result.status === "changed" && result.changes) {
           collected.push(...result.changes);
+          push(
+            trailEntry(
+              "Report",
+              `${result.changes.length} classified change(s) from ${feedWatch.vendor}`,
+              "Added to the inbox, ranked by priority and routed to an owner.",
+              "ok",
+              feedWatch.url,
+            ),
+          );
         } else if (result.status === "error") {
           errors.push(result.error ?? `We couldn't read ${feedWatch.vendor}.`);
         }
       }
 
       // The mock Deepgram page keeps the offline demo repeatable.
-      const mock = watches.find((w) => w.url === "/mock/deepgram-changelog");
       let mockChanges: Change[] = [];
       if (mock) {
         ranSomething = true;
+        push(
+          trailEntry(
+            "Reset",
+            "Restoring the v1 baseline for the mock page",
+            "Keeps the demo repeatable so a change is always detectable on the next visit.",
+            "info",
+            mock.url,
+          ),
+        );
         await reset({ data: undefined });
+        push(
+          trailEntry(
+            "Visit",
+            "Opening the mock changelog page",
+            "Plain page — snapshot the whole document and diff it.",
+            "running",
+            mock.url,
+          ),
+        );
         const result = await run({ data: { watch_id: mock.id } });
+        result.feed.forEach((line) => push(feedLineToEntry(line, mock.url)));
+
         if (result.status === "changed" && result.changes) {
           mockChanges = result.changes;
         } else if (result.status === "error") {
@@ -133,10 +186,23 @@ function DriftWatchApp() {
         setSummary("All done — nothing to check yet.");
       }
 
-      if (errors.length > 0) setLiveError(errors[0] ?? null);
+      if (errors.length > 0) {
+        setLiveError(errors[0] ?? null);
+        errors.forEach((e) =>
+          push(trailEntry("Error", e, "Recorded rather than swallowed — the run continues.", "error")),
+        );
+      }
     } catch {
       setLiveError("Something went wrong on that run. Try again in a moment.");
       setSummary("All done — the run didn't finish cleanly");
+      push(
+        trailEntry(
+          "Error",
+          "The run stopped unexpectedly",
+          "Partial results are kept so the trail still shows how far the agent got.",
+          "error",
+        ),
+      );
     } finally {
       setServerDone(true);
       void queryClient.invalidateQueries({ queryKey: ["watches"] });
