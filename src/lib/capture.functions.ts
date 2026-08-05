@@ -232,10 +232,50 @@ export const resetMockBaseline = createServerFn({ method: "POST" }).handler(asyn
   return { ok: true as const };
 });
 
+const AddWatchSchema = z.object({
+  url: z.string().min(4).max(400),
+  role: z.enum(["STT", "LLM", "TTS", "noise-cancel"]),
+});
+
+export const addWatch = createServerFn({ method: "POST" })
+  .validator((input) => AddWatchSchema.parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { inferProvider, positionForRole } = await import("@/lib/watch-utils");
+
+    const url = data.url.startsWith("http") || data.url.startsWith("/")
+      ? data.url
+      : `https://${data.url}`;
+
+    const { error } = await supabaseAdmin.from("watches").insert({
+      url,
+      vendor: inferProvider(url),
+      role: data.role,
+      dependency_position: positionForRole(data.role),
+      cadence: "manual",
+      use_firecrawl: true,
+    });
+
+    if (error) return { ok: false as const, error: "Could not add that page." };
+    return { ok: true as const };
+  });
+
+export const removeWatch = createServerFn({ method: "POST" })
+  .validator((input) => z.object({ watch_id: z.string().uuid() }).parse(input))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.from("changes").delete().eq("watch_id", data.watch_id);
+    await supabaseAdmin.from("snapshots").delete().eq("watch_id", data.watch_id);
+    const { error } = await supabaseAdmin.from("watches").delete().eq("id", data.watch_id);
+    if (error) return { ok: false as const, error: "Could not remove that page." };
+    return { ok: true as const };
+  });
+
 export type WatchRow = {
   id: string;
   url: string;
   vendor: string;
+  role: string;
   dependency_position: string;
   cadence: string;
   last_checked_at: string | null;
@@ -243,3 +283,4 @@ export type WatchRow = {
   use_firecrawl: boolean;
   created_at: string;
 };
+
