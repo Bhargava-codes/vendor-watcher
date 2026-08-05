@@ -110,25 +110,6 @@ export function computeStructuredDiff(oldContent: string, newContent: string): {
   return { diff: parts.join("\n"), hunks };
 }
 
-export function fetchWithTimeout(url: string, timeoutMs = 15000, maxBytes = 5 * 1024 * 1024): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-  return fetch(url, {
-    signal: controller.signal,
-    headers: {
-      "User-Agent": "DependencyDriftMonitor/1.0 (+https://lovable.dev)",
-      Accept: "text/html, text/plain, application/xhtml+xml, application/xml;q=0.9, */*;q=0.8",
-    },
-    redirect: "follow",
-  }).then((res) => {
-    clearTimeout(timer);
-    if (res.status === 404) return res;
-    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-    return res;
-  });
-}
-
 export async function fetchPageMarkdown(url: string, useFirecrawl: boolean): Promise<{
   ok: true;
   markdown: string;
@@ -139,10 +120,26 @@ export async function fetchPageMarkdown(url: string, useFirecrawl: boolean): Pro
     return { ok: false, reason: "Firecrawl not configured in this environment — use the mock page or connect Firecrawl.", shouldRetry: false };
   }
 
+  const { safeFetch, assertSafeUrl } = await import("@/lib/url-guard.server");
+
+  const precheck = assertSafeUrl(url);
+  if (!precheck.ok) {
+    return { ok: false, reason: precheck.reason, shouldRetry: false };
+  }
+
   try {
-    const res = await fetchWithTimeout(url);
+    const res = await safeFetch(url, {
+      timeoutMs: 15000,
+      headers: {
+        "User-Agent": "DependencyDriftMonitor/1.0 (+https://lovable.dev)",
+        Accept: "text/html, text/plain, application/xhtml+xml, application/xml;q=0.9, */*;q=0.8",
+      },
+    });
     if (res.status === 404) {
       return { ok: false, reason: "404 — page not found", shouldRetry: false };
+    }
+    if (!res.ok) {
+      return { ok: false, reason: `Couldn't read that page (HTTP ${res.status}).`, shouldRetry: false };
     }
     const contentType = res.headers.get("content-type") ?? "";
     let text: string;
@@ -156,10 +153,11 @@ export async function fetchPageMarkdown(url: string, useFirecrawl: boolean): Pro
     if (!normalized) {
       return { ok: false, reason: "No readable content extracted — the page may be JS-rendered or require a headless fetch.", shouldRetry: false };
     }
-    return { ok: true, markdown: normalized, finalUrl: res.url };
+    return { ok: true, markdown: normalized, finalUrl: res.url || url };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const isTimeout = message.includes("abort") || message.includes("timeout");
-    return { ok: false, reason: isTimeout ? "Request timed out" : `Fetch failed: ${message}`, shouldRetry: isTimeout };
+    return { ok: false, reason: isTimeout ? "Request timed out" : "Couldn't read that page.", shouldRetry: isTimeout };
   }
 }
+
