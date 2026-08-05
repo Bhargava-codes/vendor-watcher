@@ -80,7 +80,12 @@ function DriftWatchApp() {
     setLiveError(null);
     setTrail([]);
 
-    const push = (entry: TrailEntry) => setTrail((t) => [...t, entry]);
+    // A new action means the previous one finished, so settle any spinner.
+    const push = (entry: TrailEntry) =>
+      setTrail((t) => [
+        ...t.map((e) => (e.status === "running" ? { ...e, status: "ok" as const } : e)),
+        entry,
+      ]);
 
     try {
       const collected: Change[] = [];
