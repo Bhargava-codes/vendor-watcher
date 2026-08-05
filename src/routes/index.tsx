@@ -54,6 +54,7 @@ function DriftWatchApp() {
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [serverDone, setServerDone] = useState(false);
   const [summary, setSummary] = useState<string | null>(null);
+  const [trail, setTrail] = useState<TrailEntry[]>([]);
 
   const queryClient = useQueryClient();
   const list = useServerFn(listWatches);
