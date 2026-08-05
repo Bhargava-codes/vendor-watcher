@@ -124,6 +124,7 @@ export type Database = {
           id: string
           last_checked_at: string | null
           last_status: string | null
+          role: string
           url: string
           use_firecrawl: boolean
           vendor: string
@@ -135,6 +136,7 @@ export type Database = {
           id?: string
           last_checked_at?: string | null
           last_status?: string | null
+          role?: string
           url: string
           use_firecrawl?: boolean
           vendor: string
@@ -146,6 +148,7 @@ export type Database = {
           id?: string
           last_checked_at?: string | null
           last_status?: string | null
+          role?: string
           url?: string
           use_firecrawl?: boolean
           vendor?: string

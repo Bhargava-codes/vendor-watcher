@@ -26,7 +26,14 @@ export type Change = {
   routed_to: string;
 };
 
-export const USAGE_MANIFEST = {
+export type VendorManifest = {
+  role: string;
+  dependency_position: string;
+  uses: string[];
+  pinned: string[];
+};
+
+export const USAGE_MANIFEST: Record<string, VendorManifest> = {
   deepgram: {
     role: "STT",
     dependency_position: "on-path",
@@ -50,24 +57,83 @@ export const WATCHED_VENDORS = [
   { name: "Krisp", role: "noise-cancel", position: "degrading" },
 ];
 
-export const FEED_LINES = [
-  "fetching 4 vendor pages",
-  "snapshots stored",
-  "diffing 11 hunks",
-  "segmenting to 6 changes",
-  "classifying vendors",
-  "1 dropped as noise",
-  "done, 2 at P0",
-];
-
-export const LIVE_FEED_LINES = [
-  "reading pasted diff",
-  "extracting structured text",
-  "segmenting changes",
-  "classifying against usage manifest",
-];
-
 export const PRIORITY_ORDER: Priority[] = ["P0", "P1", "P2", "P3", "noise"];
+
+export const TYPE_LABEL: Record<string, string> = {
+  breaking: "Breaks now",
+  deprecation: "Being retired",
+  behaviour_change: "Behaves differently",
+  new_capability: "New capability",
+  pricing: "Price change",
+  availability: "Availability",
+  security: "Security",
+  none: "Cosmetic",
+};
+
+export const ROUTE_LABEL: Record<string, string> = {
+  eng_ticket: "Engineering ticket",
+  qa_eval: "QA re-benchmark",
+  eval_bench: "Evaluation backlog",
+  finance: "Finance review",
+  eng_security: "Security review",
+  human_review: "Human review",
+  none: "No action",
+};
+
+export const ROUTE_ACTION: Record<string, string> = {
+  eng_ticket: "Create engineering ticket",
+  qa_eval: "Send to QA re-benchmark",
+  eval_bench: "Add to evaluation backlog",
+  finance: "Send to finance review",
+  eng_security: "Send to security review",
+  human_review: "Send for human review",
+  none: "Dismiss",
+};
+
+export const SEVERITY_LABEL: Record<string, string> = {
+  criticality: "How close to the call path",
+  certainty: "How certain",
+  time_to_impact: "When it hits",
+  action_cost: "Work to absorb",
+  failure_mode: "How it fails",
+  confidence: "Our confidence",
+};
+
+export const SEVERITY_VALUE: Record<string, string> = {
+  "on-path": "On the live call path",
+  degrading: "Degrades quality only",
+  "off-path": "Off the call path",
+  confirmed_now: "Confirmed, live now",
+  dated: "Confirmed, has a date",
+  opt_in: "Opt-in only",
+  additive: "Additive only",
+  immediate: "Already in effect",
+  dated_deadline: "On a deadline",
+  none: "Not yet",
+  config_flip: "Config change",
+  code_change: "Code change",
+  re_eval: "Re-evaluation",
+  re_negotiate: "Commercial review",
+  hard_error: "Hard failure",
+  silent_regression: "Silent quality drop",
+  cost_creep: "Rising cost",
+  high: "High",
+  low: "Low",
+};
+
+export const PRIORITY_LABEL: Record<Priority, string> = {
+  P0: "Act now",
+  P1: "This sprint",
+  P2: "Worth a look",
+  P3: "Noted",
+  noise: "Filtered",
+};
+
+export function label(map: Record<string, string>, value: string | undefined | null) {
+  if (!value) return "—";
+  return map[value] ?? value.replace(/_/g, " ");
+}
+
 
 export const SEED_CHANGES: Change[] = [
   {
