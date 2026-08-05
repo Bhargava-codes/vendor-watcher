@@ -275,6 +275,7 @@ function DriftWatchApp() {
           )}
           {view === "vendors" && <VendorsView />}
           {view === "trends" && <TrendsView changes={changes} />}
+          {view === "trail" && <AgentTrailView entries={trail} />}
           {view === "settings" && <SettingsView />}
           {view === "how-it-works" && <HowItWorksView />}
         </main>
@@ -283,6 +284,7 @@ function DriftWatchApp() {
       <ChangeDrawer change={selected} onClose={() => setSelected(null)} />
       <RunWatchOverlay
         open={overlayOpen}
+        entries={trail}
         serverDone={serverDone}
         summary={summary}
         onClose={closeOverlay}
