@@ -7,6 +7,7 @@ import {
   hashContent,
 } from "@/lib/capture.server";
 import { getMockContent } from "@/lib/mock-changelog.server";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Change } from "@/lib/drift-data";
 
 const RunWatchSchema = z.object({
@@ -30,6 +31,7 @@ export type RunWatchResult =
     };
 
 export const runWatch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .validator((input) => RunWatchSchema.parse(input))
   .handler(async ({ data }): Promise<RunWatchResult> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -362,7 +364,9 @@ export const listWatches = createServerFn({ method: "GET" }).handler(async () =>
   return (data ?? []) as WatchRow[];
 });
 
-export const resetMockBaseline = createServerFn({ method: "POST" }).handler(async () => {
+export const resetMockBaseline = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: watch } = await supabaseAdmin
     .from("watches")
@@ -397,15 +401,18 @@ const AddWatchSchema = z.object({
 });
 
 export const addWatch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .validator((input) => AddWatchSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { inferProvider, positionForRole } = await import("@/lib/watch-utils");
     const { resolveFeed } = await import("@/lib/changelog-feed.server");
 
-    const url = data.url.startsWith("http") || data.url.startsWith("/")
-      ? data.url
-      : `https://${data.url}`;
+    const url = data.url.startsWith("http") ? data.url : `https://${data.url}`;
+
+    const { assertSafeUrl } = await import("@/lib/url-guard.server");
+    const safety = assertSafeUrl(url);
+    if (!safety.ok) return { ok: false as const, error: safety.reason };
 
     const feedDefinition = resolveFeed(url);
 
@@ -425,6 +432,7 @@ export const addWatch = createServerFn({ method: "POST" })
   });
 
 export const removeWatch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .validator((input) => z.object({ watch_id: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
