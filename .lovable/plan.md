@@ -34,6 +34,6 @@ Rebuild the current single-page demo into the six-view enterprise app in the spe
 - Existing `capture.server.ts` (fetch, extract, hash, structured diff), `capture.functions.ts` (runWatch) and `classifier.server.ts` (the staged prompt) are reused; the prompt is updated to the spec's wording where it differs, and the mock changelog page stays as the controlled demo target.
 - Firecrawl stays the stated production fetch path (shown in Settings) but is not required for the demo — plain server-side fetch drives the mock page. If you want the real-vendor proof, I'll surface a connect card for Firecrawl at that point.
 
-## One thing to confirm
+## Classifier model
 
-The spec names **Claude Sonnet** as the classifier. The gateway's model allowlist is what decides which id I can actually send; today the app runs `openai/gpt-5.6-terra`. I'll check the catalog when I build — if a Claude Sonnet id is available I'll switch to it, otherwise I'll keep the current model and tell you rather than fail every call.
+The spec names Claude Sonnet, but you've confirmed we keep the current model: the classifier stays on `openai/gpt-5.6-terra` through the Lovable AI Gateway, with the staged prompt unchanged.
