@@ -46,7 +46,166 @@ export const runWatch = createServerFn({ method: "POST" })
       return { status: "error", diff: null, changes: null, feed: ["watch not found"], error: "Watch not found." };
     }
 
+    // ---- Dated changelog feed (real vendors: Deepgram, ElevenLabs) --------------
+    if ((watch as { kind?: string }).kind === "dated_feed") {
+      const { resolveFeed, fetchFeedEntries, entryAsDiff } = await import("@/lib/changelog-feed.server");
+      const { computeStructuredDiff: diffEntries } = await import("@/lib/capture.server");
+
+      const feed: string[] = [`reading ${watch.vendor} changelog`];
+      const definition = resolveFeed(watch.url);
+      if (!definition) {
+        return {
+          status: "error",
+          diff: null,
+          changes: null,
+          feed: [...feed, "not a recognised changelog feed"],
+          error: "That page isn't a recognised dated changelog.",
+        };
+      }
+
+      const nowIso = new Date().toISOString();
+      const entries = await fetchFeedEntries(definition.base, { windowDays: 7 });
+      feed.push(`found ${entries.length} published entr${entries.length === 1 ? "y" : "ies"}`);
+
+      const { data: existing } = await supabaseAdmin
+        .from("snapshots")
+        .select("id, entry_date, content, content_hash")
+        .eq("watch_id", watch.id)
+        .not("entry_date", "is", null);
+
+      const byDate = new Map(
+        (existing ?? []).map((s) => [s.entry_date as string, s]),
+      );
+
+      const fresh = entries
+        .map((entry) => {
+          const hash = hashContent(entry.markdown);
+          const prior = byDate.get(entry.date);
+          if (!prior) return { entry, hash, prior: null as null | { id: string; content: string } };
+          if (prior.content_hash === hash) return null;
+          return { entry, hash, prior: { id: prior.id, content: prior.content } };
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null);
+
+      if (fresh.length === 0) {
+        await supabaseAdmin
+          .from("watches")
+          .update({ last_checked_at: nowIso, last_status: byDate.size === 0 ? "baseline" : "no_change" })
+          .eq("id", watch.id);
+        return {
+          status: byDate.size === 0 ? "baseline" : "no_change",
+          diff: null,
+          changes: null,
+          feed: [...feed, "Nothing new since the last check."],
+          error: null,
+        };
+      }
+
+      // First ever run: store what's published as the baseline, don't raise alerts
+      // for history the team has already lived through.
+      if (byDate.size === 0) {
+        await supabaseAdmin.from("snapshots").insert(
+          fresh.map((f) => ({
+            watch_id: watch.id,
+            content: f.entry.markdown,
+            content_hash: f.hash,
+            entry_date: f.entry.date,
+            entry_url: f.entry.url,
+            fetched_at: nowIso,
+          })),
+        );
+        await supabaseAdmin
+          .from("watches")
+          .update({ last_checked_at: nowIso, last_status: "baseline" })
+          .eq("id", watch.id);
+        return {
+          status: "baseline",
+          diff: null,
+          changes: null,
+          feed: [...feed, `First check — ${fresh.length} entries stored as the baseline.`],
+          error: null,
+        };
+      }
+
+      const MAX_CLASSIFY = 4;
+      const toProcess = fresh.slice(0, MAX_CLASSIFY);
+      feed.push(
+        `${toProcess.length} new entr${toProcess.length === 1 ? "y" : "ies"} to classify`,
+      );
+
+      const allChanges: Change[] = [];
+      const diffParts: string[] = [];
+
+      for (const item of toProcess) {
+        const diff = item.prior
+          ? diffEntries(item.prior.content, item.entry.markdown).diff
+          : entryAsDiff(item.entry, watch.vendor);
+        diffParts.push(diff);
+
+        const { data: snapshot } = await supabaseAdmin
+          .from("snapshots")
+          .insert({
+            watch_id: watch.id,
+            content: item.entry.markdown,
+            content_hash: item.hash,
+            entry_date: item.entry.date,
+            entry_url: item.entry.url,
+            fetched_at: nowIso,
+          })
+          .select("id")
+          .single();
+
+        const classified = await classifyDiff({
+          diff,
+          vendorHint: watch.vendor,
+          manifest: USAGE_MANIFEST,
+          today: nowIso.slice(0, 10),
+        });
+
+        const entryChanges = classified.ok
+          ? (classified.changes as Change[]).map((c) => ({
+              ...c,
+              entry_date: item.entry.date,
+              entry_url: item.entry.url,
+            }))
+          : [];
+        allChanges.push(...entryChanges);
+
+        if (snapshot) {
+          await supabaseAdmin.from("changes").insert({
+            watch_id: watch.id,
+            snapshot_from: item.prior?.id ?? null,
+            snapshot_to: snapshot.id,
+            diff,
+            classifier_output: classified.ok ? { changes: entryChanges } : null,
+            entry_date: item.entry.date,
+            entry_url: item.entry.url,
+            detected_at: nowIso,
+          });
+        }
+
+        if (!classified.ok) feed.push(`classifier error on ${item.entry.date}`);
+      }
+
+      await supabaseAdmin
+        .from("watches")
+        .update({ last_checked_at: nowIso, last_status: "changed" })
+        .eq("id", watch.id);
+
+      feed.push(`done, ${allChanges.filter((c) => c.priority === "P0").length} at P0`);
+
+      return {
+        status: "changed",
+        diff: diffParts.join("\n\n"),
+        changes: allChanges,
+        feed,
+        error: null,
+      };
+    }
+    // ---- Single-page snapshot diff ---------------------------------------------
+
     const feed: string[] = [`fetching ${watch.url}`];
+
 
     // Resolve absolute URL for local mock pages.
     let url = watch.url;
@@ -242,19 +401,24 @@ export const addWatch = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { inferProvider, positionForRole } = await import("@/lib/watch-utils");
+    const { resolveFeed } = await import("@/lib/changelog-feed.server");
 
     const url = data.url.startsWith("http") || data.url.startsWith("/")
       ? data.url
       : `https://${data.url}`;
 
+    const feedDefinition = resolveFeed(url);
+
     const { error } = await supabaseAdmin.from("watches").insert({
       url,
-      vendor: inferProvider(url),
+      vendor: feedDefinition?.vendor ?? inferProvider(url),
       role: data.role,
       dependency_position: positionForRole(data.role),
       cadence: "manual",
-      use_firecrawl: true,
+      use_firecrawl: !feedDefinition,
+      kind: feedDefinition ? "dated_feed" : "page",
     });
+
 
     if (error) return { ok: false as const, error: "Could not add that page." };
     return { ok: true as const };
@@ -281,6 +445,7 @@ export type WatchRow = {
   last_checked_at: string | null;
   last_status: string | null;
   use_firecrawl: boolean;
+  kind?: string;
   created_at: string;
 };
 

@@ -77,36 +77,60 @@ function DriftWatchApp() {
     setLiveError(null);
 
     try {
-      const mock = watches.find((w) => w.url === "/mock/deepgram-changelog");
-      if (!mock) {
-        setSummary("All done — nothing new since the last check.");
-        setServerDone(true);
-        return;
+      const collected: Change[] = [];
+      const errors: string[] = [];
+      let ranSomething = false;
+
+      // Real vendor changelogs (Deepgram, ElevenLabs) — dated entry feeds.
+      const feeds = watches.filter((w) => w.kind === "dated_feed");
+      for (const feedWatch of feeds) {
+        ranSomething = true;
+        const result = await run({ data: { watch_id: feedWatch.id } });
+        if (result.status === "changed" && result.changes) {
+          collected.push(...result.changes);
+        } else if (result.status === "error") {
+          errors.push(result.error ?? `We couldn't read ${feedWatch.vendor}.`);
+        }
       }
 
-      await reset({ data: undefined });
-      const result = await run({ data: { watch_id: mock.id } });
+      // The mock Deepgram page keeps the offline demo repeatable.
+      const mock = watches.find((w) => w.url === "/mock/deepgram-changelog");
+      let mockChanges: Change[] = [];
+      if (mock) {
+        ranSomething = true;
+        await reset({ data: undefined });
+        const result = await run({ data: { watch_id: mock.id } });
+        if (result.status === "changed" && result.changes) {
+          mockChanges = result.changes;
+        } else if (result.status === "error") {
+          errors.push(result.error ?? "We couldn't read the mock page.");
+        }
+      }
 
-      if (result.status === "changed" && result.changes && result.changes.length > 0) {
-        // The live run re-derives every Deepgram change from the page, so drop
-        // the seeded Deepgram rows and keep the other vendors' history.
-        const others = SEED_CHANGES.filter((s) => s.vendor.toLowerCase() !== "deepgram");
-        setLiveChanges([...result.changes, ...others]);
+      const live = [...collected, ...mockChanges];
 
-        const urgent = result.changes.filter((c) => c.priority === "P0").length;
+      if (live.length > 0) {
+        // Live runs re-derive Deepgram from source, so drop seeded Deepgram rows
+        // and keep the other vendors' history.
+        const liveVendors = new Set(live.map((c) => c.vendor.toLowerCase()));
+        const others = SEED_CHANGES.filter((s) => !liveVendors.has(s.vendor.toLowerCase()));
+        setLiveChanges([...live, ...others]);
 
+        const urgent = live.filter((c) => c.priority === "P0").length;
         setSummary(
           urgent > 0
             ? `All done — ${urgent} change${urgent === 1 ? "" : "s"} need${urgent === 1 ? "s" : ""} your attention`
-            : `All done — ${result.changes.length} change${result.changes.length === 1 ? "" : "s"} found`,
+            : `All done — ${live.length} change${live.length === 1 ? "" : "s"} found`,
         );
-
-      } else if (result.status === "error") {
-        setLiveError(result.error ?? "We couldn't read that page.");
-        setSummary("All done — one page couldn't be read");
-      } else {
+      } else if (errors.length > 0) {
+        setSummary("All done — some pages couldn't be read");
+      } else if (ranSomething) {
         setSummary("All done — nothing new since the last check.");
+      } else {
+        setSummary("All done — nothing to check yet.");
       }
+
+      if (errors.length > 0) setLiveError(errors[0] ?? null);
     } catch {
       setLiveError("Something went wrong on that run. Try again in a moment.");
       setSummary("All done — the run didn't finish cleanly");
@@ -115,6 +139,7 @@ function DriftWatchApp() {
       void queryClient.invalidateQueries({ queryKey: ["watches"] });
     }
   }, [overlayOpen, watches, reset, run, queryClient]);
+
 
   const closeOverlay = useCallback(() => {
     setOverlayOpen(false);

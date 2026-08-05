@@ -19,6 +19,8 @@ export type Database = {
           classifier_output: Json | null
           detected_at: string
           diff: string
+          entry_date: string | null
+          entry_url: string | null
           id: string
           snapshot_from: string | null
           snapshot_to: string
@@ -28,6 +30,8 @@ export type Database = {
           classifier_output?: Json | null
           detected_at?: string
           diff: string
+          entry_date?: string | null
+          entry_url?: string | null
           id?: string
           snapshot_from?: string | null
           snapshot_to: string
@@ -37,6 +41,8 @@ export type Database = {
           classifier_output?: Json | null
           detected_at?: string
           diff?: string
+          entry_date?: string | null
+          entry_url?: string | null
           id?: string
           snapshot_from?: string | null
           snapshot_to?: string
@@ -70,6 +76,8 @@ export type Database = {
         Row: {
           content: string
           content_hash: string
+          entry_date: string | null
+          entry_url: string | null
           fetched_at: string
           id: string
           watch_id: string
@@ -77,6 +85,8 @@ export type Database = {
         Insert: {
           content: string
           content_hash: string
+          entry_date?: string | null
+          entry_url?: string | null
           fetched_at?: string
           id?: string
           watch_id: string
@@ -84,6 +94,8 @@ export type Database = {
         Update: {
           content?: string
           content_hash?: string
+          entry_date?: string | null
+          entry_url?: string | null
           fetched_at?: string
           id?: string
           watch_id?: string
@@ -122,6 +134,7 @@ export type Database = {
           created_at: string
           dependency_position: string
           id: string
+          kind: string
           last_checked_at: string | null
           last_status: string | null
           role: string
@@ -134,6 +147,7 @@ export type Database = {
           created_at?: string
           dependency_position?: string
           id?: string
+          kind?: string
           last_checked_at?: string | null
           last_status?: string | null
           role?: string
@@ -146,6 +160,7 @@ export type Database = {
           created_at?: string
           dependency_position?: string
           id?: string
+          kind?: string
           last_checked_at?: string | null
           last_status?: string | null
           role?: string
