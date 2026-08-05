@@ -130,9 +130,15 @@ export function WatchesView({
             <tbody>
               {watches.map((w) => (
                 <tr key={w.id} className="group border-b border-line/70 last:border-0 hover:bg-canvas">
-                  <td className="max-w-sm truncate px-4 py-3 font-mono text-xs text-ink-dim">
-                    {w.url}
+                  <td className="max-w-sm px-4 py-3 font-mono text-xs text-ink-dim">
+                    <span className="block truncate">{w.url}</span>
+                    {w.kind === "dated_feed" && (
+                      <span className="mt-1 inline-block rounded-full bg-p3-soft px-2 py-0.5 font-sans text-[11px] font-medium text-ink-dim">
+                        Dated changelog — reads new entries daily
+                      </span>
+                    )}
                   </td>
+
                   <td className="px-4 py-3 font-medium text-ink">{w.vendor}</td>
                   <td className="px-4 py-3 text-ink-dim">{ROLE_LABEL[w.role] ?? w.role}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-ink-dim">

@@ -3,7 +3,7 @@ import { Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STEPS = [
-  { title: "Capture", copy: "Reading the vendor page" },
+  { title: "Capture", copy: "Reading vendor pages and new changelog entries" },
   { title: "Compare", copy: "Comparing it to what we saw last time" },
   { title: "Analyze", copy: "Separating real edits from noise" },
   { title: "Classify", copy: "Working out what each change does" },

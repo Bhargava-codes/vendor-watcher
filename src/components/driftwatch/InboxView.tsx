@@ -216,8 +216,21 @@ export function InboxView({
                       <p className="text-ink">{change.after || change.before || change.section}</p>
                       <p className="mt-0.5 text-xs text-ink-faint">
                         {label(TYPE_LABEL, change.change_type)} · {change.section}
+                        {change.entry_date ? ` · entry ${formatDate(change.entry_date)}` : ""}
                       </p>
+                      {change.entry_url && (
+                        <a
+                          href={change.entry_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="mt-0.5 inline-block text-xs font-medium text-brand hover:underline"
+                        >
+                          View source entry
+                        </a>
+                      )}
                     </td>
+
                     <td className="whitespace-nowrap px-4 py-3 align-top text-ink-dim">
                       {label(ROUTE_LABEL, change.routed_to)}
                     </td>

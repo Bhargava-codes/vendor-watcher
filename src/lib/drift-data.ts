@@ -24,6 +24,9 @@ export type Change = {
   priority: Priority;
   interpretation: string;
   routed_to: string;
+  /** Set when the change came from a dated changelog entry. */
+  entry_date?: string | null;
+  entry_url?: string | null;
 };
 
 export type VendorManifest = {
