@@ -88,17 +88,13 @@ function DriftWatchApp() {
       const result = await run({ data: { watch_id: mock.id } });
 
       if (result.status === "changed" && result.changes && result.changes.length > 0) {
-        const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
-        const seen = new Set(SEED_CHANGES.map((s) => norm(s.after || s.before)));
-        const fresh = result.changes.filter((c) => {
-          const key = norm(c.after || c.before);
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
-        setLiveChanges([...SEED_CHANGES, ...fresh]);
+        // The live run re-derives every Deepgram change from the page, so drop
+        // the seeded Deepgram rows and keep the other vendors' history.
+        const others = SEED_CHANGES.filter((s) => s.vendor.toLowerCase() !== "deepgram");
+        setLiveChanges([...result.changes, ...others]);
 
         const urgent = result.changes.filter((c) => c.priority === "P0").length;
+
         setSummary(
           urgent > 0
             ? `All done — ${urgent} change${urgent === 1 ? "" : "s"} need${urgent === 1 ? "s" : ""} your attention`
