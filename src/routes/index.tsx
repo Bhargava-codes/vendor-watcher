@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -22,8 +22,6 @@ import { TrendsView } from "@/components/driftwatch/TrendsView";
 import { SettingsView } from "@/components/driftwatch/SettingsView";
 import { HowItWorksView } from "@/components/driftwatch/HowItWorksView";
 import { RunWatchOverlay } from "@/components/driftwatch/RunWatchOverlay";
-import { SignIn } from "@/components/driftwatch/SignIn";
-import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -42,27 +40,8 @@ export const Route = createFileRoute("/")({
       },
     ],
   }),
-  ssr: false,
-  component: DriftWatchGate,
+  component: DriftWatchApp,
 });
-
-function DriftWatchGate() {
-  const [status, setStatus] = useState<"loading" | "in" | "out">("loading");
-
-  useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setStatus(session ? "in" : "out");
-    });
-    void supabase.auth.getSession().then(({ data }) => {
-      setStatus(data.session ? "in" : "out");
-    });
-    return () => sub.subscription.unsubscribe();
-  }, []);
-
-  if (status === "loading") return <div className="min-h-screen bg-canvas" />;
-  if (status === "out") return <SignIn />;
-  return <DriftWatchApp />;
-}
 
 function DriftWatchApp() {
   const [view, setView] = useState<ViewId>("inbox");

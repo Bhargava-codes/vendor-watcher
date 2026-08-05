@@ -7,7 +7,6 @@ import {
   hashContent,
 } from "@/lib/capture.server";
 import { getMockContent } from "@/lib/mock-changelog.server";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Change } from "@/lib/drift-data";
 
 const RunWatchSchema = z.object({
@@ -31,7 +30,6 @@ export type RunWatchResult =
     };
 
 export const runWatch = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .validator((input) => RunWatchSchema.parse(input))
   .handler(async ({ data }): Promise<RunWatchResult> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -365,7 +363,6 @@ export const listWatches = createServerFn({ method: "GET" }).handler(async () =>
 });
 
 export const resetMockBaseline = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: watch } = await supabaseAdmin
@@ -401,7 +398,6 @@ const AddWatchSchema = z.object({
 });
 
 export const addWatch = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .validator((input) => AddWatchSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -432,7 +428,6 @@ export const addWatch = createServerFn({ method: "POST" })
   });
 
 export const removeWatch = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .validator((input) => z.object({ watch_id: z.string().uuid() }).parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
