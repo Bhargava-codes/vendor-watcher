@@ -78,15 +78,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "DriftWatch" },
+      { title: "DriftWatch — Vendor change monitoring for voice AI" },
       {
         name: "description",
         content:
-          "Vendor change monitoring for voice AI platforms — catch breaking changes before they reach production.",
+          "DriftWatch reads your vendor pages, spots the changes that touch your live call path, and routes each one to the team that can act on it.",
       },
       { name: "author", content: "DriftWatch" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:title", content: "DriftWatch — Vendor change monitoring for voice AI" },
+      { name: "twitter:title", content: "DriftWatch — Vendor change monitoring for voice AI" },
+      { property: "og:description", content: "DriftWatch reads your vendor pages, spots the changes that touch your live call path, and routes each one to the team that can act on it." },
+      { name: "twitter:description", content: "DriftWatch reads your vendor pages, spots the changes that touch your live call path, and routes each one to the team that can act on it." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/51867416-04bf-4183-97df-e279cf95eba5/id-preview-652e7ded--7efe2c1c-0735-4d83-afc7-f5c0c52ca5db.lovable.app-1785924709145.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/51867416-04bf-4183-97df-e279cf95eba5/id-preview-652e7ded--7efe2c1c-0735-4d83-afc7-f5c0c52ca5db.lovable.app-1785924709145.png" },
     ],
     links: [
       {

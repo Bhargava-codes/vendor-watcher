@@ -38,7 +38,7 @@ export const Route = createFileRoute("/")({
       {
         property: "og:description",
         content:
-          "Catch breaking changes, deprecations and price moves across your STT, LLM and TTS vendors before they reach production.",
+          "DriftWatch reads your vendor pages, spots the changes that touch your live call path, and routes each one to the team that can act on it.",
       },
     ],
   }),
