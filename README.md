@@ -10,11 +10,68 @@ DriftWatch is a dependency-drift monitor for voice-agent stacks. It watches the 
 - **Routes to owners** — Each change is routed to the right team: engineering ticket, QA re-benchmark, finance review, security review, or human review.
 - **Keeps a ranked inbox** — The Inbox shows the highest-priority changes first, with a diff drawer and the classifier's reasoning for every row.
 
+## Architecture
+
+```text
+  Run watch (UI)
+        |
+        v
+  runWatch  (server function, src/lib/capture.functions.ts)
+        |
+        +-- kind = "page"  -----> safeFetch -> HTML -> clean markdown
+        |                          (capture.server.ts, url-guard.server.ts)
+        |
+        +-- kind = "dated_feed" -> probe /YYYY/M/D.md over a 7-day window
+                                   + parse the vendor's "Similar pages" index
+                                   (changelog-feed.server.ts)
+        |
+        v
+  content hash -> unchanged? stop early (no LLM call, no inbox row)
+        |
+        v
+  structured diff vs. last snapshot  (capture.server.ts)
+        |
+        v
+  LLM classifier + usage manifest    (classifier.server.ts, Lovable AI Gateway)
+   priority P0-P3 / noise, call-path impact, certainty, deadline, owner
+        |
+        v
+  snapshots + changes tables (Supabase)  ->  Change inbox + Agent trail (UI)
+```
+
+Key decisions:
+
+- **Snapshot then diff, never re-scrape history.** Each visit stores a content hash; an unchanged hash exits before the diff and before any LLM call, so re-runs are cheap.
+- **Two capture strategies.** Vendors like Deepgram and ElevenLabs publish date-addressed changelog entries, so those are read entry by entry instead of diffing one long page. Everything else is a whole-page snapshot.
+- **Formatting vs. content.** HTML is reduced to clean markdown before hashing, so nav, chrome and markup churn cannot masquerade as a content change. The classifier then splits remaining edits into real changes vs. noise.
+- **SSRF guard.** All outbound fetches go through `url-guard.server.ts`, which blocks private/link-local addresses and re-validates every redirect hop.
+- **Agent trail.** Each server step returns a feed line; the UI turns those into a timestamped log of what the agent did and why (`src/lib/agent-trail.ts`, `AgentTrailView.tsx`). The run overlay renders that same live stream — it is real progress, not a canned animation.
+
+### Where things live
+
+| Path | Role |
+| --- | --- |
+| `src/lib/capture.functions.ts` | Server functions: `runWatch`, `addWatch`, `removeWatch`, `resetMockBaseline` |
+| `src/lib/capture.server.ts` | Fetch, markdown extraction, hashing, structured diff |
+| `src/lib/changelog-feed.server.ts` | Dated changelog discovery for Deepgram / ElevenLabs |
+| `src/lib/classifier.server.ts` | LLM classification and routing |
+| `src/lib/url-guard.server.ts` | SSRF protection for outbound fetches |
+| `src/components/driftwatch/` | Shell, inbox, drawer, watches, trail, run overlay |
+| `supabase/migrations/` | Schema for `watches`, `snapshots`, `changes` |
+
+## The target page (for evaluating change detection)
+
+`src/routes/mock/deepgram-changelog.tsx` is a local changelog page with two
+versions (v1 and v2) that differ in copy, a pricing number and a deprecation
+notice. "Run watch" resets the baseline to v1 and then reads v2, so a change is
+detected and classified on every run. Real vendor changelogs are wired in
+alongside it.
+
 ## Tech stack
 
 - **Frontend:** TanStack Start, React 19, TypeScript, Tailwind CSS v4
 - **Backend:** Lovable Cloud (Supabase) with Row-Level Security
-- **Classifier:** Lovable AI Gateway (OpenAI model)
+- **Classifier:** Lovable AI Gateway (`openai/gpt-5.6-terra`)
 - **Build tool:** Vite 7
 
 ## Local development
