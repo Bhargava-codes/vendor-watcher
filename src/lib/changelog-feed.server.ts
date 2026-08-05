@@ -50,23 +50,18 @@ const MAX_DATE_PROBES = 30;
 const REQUEST_TIMEOUT_MS = 15000;
 
 async function getText(url: string): Promise<{ status: number; text: string }> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      redirect: "follow",
-      headers: {
-        "User-Agent": "DriftWatch/1.0 (vendor change monitoring)",
-        Accept: "text/markdown, text/plain;q=0.9, */*;q=0.5",
-      },
-    });
-    const text = await res.text();
-    return { status: res.status, text };
-  } finally {
-    clearTimeout(timer);
-  }
+  const { safeFetch } = await import("@/lib/url-guard.server");
+  const res = await safeFetch(url, {
+    timeoutMs: REQUEST_TIMEOUT_MS,
+    headers: {
+      "User-Agent": "DriftWatch/1.0 (vendor change monitoring)",
+      Accept: "text/markdown, text/plain;q=0.9, */*;q=0.5",
+    },
+  });
+  const text = await res.text();
+  return { status: res.status, text };
 }
+
 
 /** Strips the docs-platform preamble ("> For clean Markdown of any page…"). */
 function cleanEntryMarkdown(raw: string): string {
