@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Keep stack-layer types, starter presets, and explicitly illustrative sample diffs in `src/lib/pipeline-data.ts` so future setup screens share one typed source of truth.
