@@ -10,3 +10,4 @@
 <!-- LOVABLE:END -->
 
 - Keep stack-layer types, starter presets, and explicitly illustrative sample diffs in `src/lib/pipeline-data.ts` so future setup screens share one typed source of truth.
+- Keep database schema changes in Lovable Database-managed Drizzle migrations so repository history stays aligned with the applied database.
