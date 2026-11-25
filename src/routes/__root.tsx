@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from "@/components/auth/AuthProvider";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
 function NotFoundComponent() {
@@ -78,21 +79,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "DriftWatch — Vendor change monitoring for voice AI" },
+      { title: "DriftWatch — Dependency drift monitoring for AI builders" },
       {
         name: "description",
         content:
-          "DriftWatch reads your vendor pages, spots the changes that touch your live call path, and routes each one to the team that can act on it.",
+          "Configure your voice or agentic AI stack and catch vendor breaking changes before they reach production.",
       },
       { name: "author", content: "DriftWatch" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:title", content: "DriftWatch — Vendor change monitoring for voice AI" },
-      { name: "twitter:title", content: "DriftWatch — Vendor change monitoring for voice AI" },
-      { property: "og:description", content: "DriftWatch reads your vendor pages, spots the changes that touch your live call path, and routes each one to the team that can act on it." },
-      { name: "twitter:description", content: "DriftWatch reads your vendor pages, spots the changes that touch your live call path, and routes each one to the team that can act on it." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/51867416-04bf-4183-97df-e279cf95eba5/id-preview-652e7ded--7efe2c1c-0735-4d83-afc7-f5c0c52ca5db.lovable.app-1785924709145.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/51867416-04bf-4183-97df-e279cf95eba5/id-preview-652e7ded--7efe2c1c-0735-4d83-afc7-f5c0c52ca5db.lovable.app-1785924709145.png" },
+      { property: "og:title", content: "DriftWatch — Dependency drift monitoring for AI builders" },
+      { name: "twitter:title", content: "DriftWatch — Dependency drift monitoring for AI builders" },
+      { property: "og:description", content: "Configure your voice or agentic AI stack and catch vendor breaking changes before they reach production." },
+      { name: "twitter:description", content: "Configure your voice or agentic AI stack and catch vendor breaking changes before they reach production." },
     ],
     links: [
       {
@@ -134,8 +133,10 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <AuthProvider>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <Outlet />
+      </AuthProvider>
       <Toaster position="bottom-right" richColors />
     </QueryClientProvider>
   );

@@ -24,28 +24,46 @@ import { TrendsView } from "@/components/driftwatch/TrendsView";
 import { SettingsView } from "@/components/driftwatch/SettingsView";
 import { HowItWorksView } from "@/components/driftwatch/HowItWorksView";
 import { RunWatchOverlay } from "@/components/driftwatch/RunWatchOverlay";
+import { DeveloperLanding } from "@/components/driftwatch/DeveloperLanding";
 
 export const Route = createFileRoute("/")({
+  validateSearch: (search): { view?: "console" } =>
+    search["view"] === "console" ? { view: "console" } : {},
   head: () => ({
     meta: [
-      { title: "DriftWatch — Vendor change monitoring for voice AI" },
+      { title: "DriftWatch — Dependency drift monitoring for AI builders" },
       {
         name: "description",
         content:
-          "DriftWatch reads your vendor pages, spots the changes that touch your live call path, and routes each one to the team that can act on it.",
+          "Configure your voice or agentic AI stack and catch vendor breaking changes before they reach production.",
       },
-      { property: "og:title", content: "DriftWatch — Vendor change monitoring for voice AI" },
+      { property: "og:type", content: "website" },
+      { property: "og:title", content: "DriftWatch — Dependency drift monitoring for AI builders" },
       {
         property: "og:description",
         content:
-          "DriftWatch reads your vendor pages, spots the changes that touch your live call path, and routes each one to the team that can act on it.",
+          "Configure your voice or agentic AI stack and catch vendor breaking changes before they reach production.",
       },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: DriftWatchApp,
 });
 
 function DriftWatchApp() {
+  const search = Route.useSearch();
+  const [surface, setSurface] = useState<"landing" | "console">(
+    search.view === "console" ? "console" : "landing",
+  );
+
+  if (surface === "landing") {
+    return <DeveloperLanding onOpenConsole={() => setSurface("console")} />;
+  }
+
+  return <MonitoringConsole onOpenBuilder={() => setSurface("landing")} />;
+}
+
+function MonitoringConsole({ onOpenBuilder }: { onOpenBuilder: () => void }) {
   const [view, setView] = useState<ViewId>("inbox");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Change | null>(null);
@@ -255,6 +273,7 @@ function DriftWatchApp() {
           onQueryChange={setQuery}
           onRun={() => void handleRun()}
           running={overlayOpen}
+          onOpenBuilder={onOpenBuilder}
         />
 
         <main className={`flex-1 overflow-y-auto px-6 py-6 ${overlayOpen ? "blur-sm" : ""}`}>

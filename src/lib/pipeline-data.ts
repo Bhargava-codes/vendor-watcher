@@ -255,6 +255,8 @@ export interface SampleDiff {
   before: string;
   after: string;
   priority: Priority;
+  impact: string;
+  action: string;
   disclosure: string;
   illustrativeOnly: true;
 }
@@ -263,32 +265,251 @@ export interface SampleDiff {
 export const SAMPLE_DIFFS = [
   {
     id: "example-model-alias",
-    title: "Example: model alias target changed",
+    title: "Model alias target changed",
     layer: "llm",
     before: 'model = "provider/model-alias" → model-a',
     after: 'model = "provider/model-alias" → model-b',
     priority: "P1",
+    impact: "The same deployment can start producing different answers without a code change.",
+    action: "Run your evaluation set against the new target, then pin a checkpoint if the results regress.",
     disclosure: "Synthetic example — not a current vendor announcement.",
     illustrativeOnly: true,
   },
   {
     id: "example-endpoint-deprecation",
-    title: "Example: endpoint deprecation announced",
+    title: "Streaming endpoint deprecated",
     layer: "stt",
     before: "endpoint status: supported",
     after: "endpoint status: deprecated; migration deadline supplied by vendor",
     priority: "P1",
+    impact: "Live transcription keeps working temporarily, but the integration now has a migration deadline.",
+    action: "Move streaming traffic to the replacement endpoint and replay a representative call set.",
     disclosure: "Synthetic example — not a current vendor announcement.",
     illustrativeOnly: true,
   },
   {
     id: "example-tool-schema",
-    title: "Example: tool argument becomes required",
+    title: "Tool argument becomes required",
     layer: "tools",
     before: 'arguments: { "query": "..." }',
     after: 'arguments: { "query": "...", "region": "..." }',
     priority: "P0",
+    impact: "Existing tool calls can fail at runtime when the agent omits the newly required argument.",
+    action: "Update the tool schema and add a contract test for the agent's generated arguments.",
+    disclosure: "Synthetic example — not a current vendor announcement.",
+    illustrativeOnly: true,
+  },
+  {
+    id: "example-voice-retirement",
+    title: "Voice ID retirement announced",
+    layer: "tts",
+    before: 'voice_id = "voice-example-a" → active',
+    after: 'voice_id = "voice-example-a" → retiring; replacement required',
+    priority: "P1",
+    impact: "New sessions can lose their configured voice or fail synthesis after the retirement date.",
+    action: "Select a replacement voice, compare latency and pronunciation, then update the environment config.",
+    disclosure: "Synthetic example — not a current vendor announcement.",
+    illustrativeOnly: true,
+  },
+  {
+    id: "example-managed-speech-model",
+    title: "Managed speech model default changed",
+    layer: "speech_model",
+    before: "managed speech default = stable-a",
+    after: "managed speech default = stable-b",
+    priority: "P1",
+    impact: "Turn-taking, latency, and speech quality can shift together in a managed pipeline.",
+    action: "Replay barge-in and interruption scenarios before accepting the new managed default.",
+    disclosure: "Synthetic example — not a current vendor announcement.",
+    illustrativeOnly: true,
+  },
+  {
+    id: "example-telephony-webhook",
+    title: "Call webhook payload changed",
+    layer: "telephony",
+    before: 'event: { "call_id": "...", "status": "completed" }',
+    after: 'event: { "call_id": "...", "status": "completed", "schema_version": 2 }',
+    priority: "P2",
+    impact: "Strict webhook deserializers may reject the new payload even though the call itself succeeds.",
+    action: "Verify webhook parsing and signature handling against the versioned payload.",
+    disclosure: "Synthetic example — not a current vendor announcement.",
+    illustrativeOnly: true,
+  },
+  {
+    id: "example-memory-retention",
+    title: "Memory retention default changed",
+    layer: "memory",
+    before: "session retention = unlimited",
+    after: "session retention = 30 days by default",
+    priority: "P1",
+    impact: "Long-running agents can silently lose historical context and stored customer state.",
+    action: "Set an explicit retention policy and verify it against your product requirements.",
+    disclosure: "Synthetic example — not a current vendor announcement.",
+    illustrativeOnly: true,
+  },
+  {
+    id: "example-embedding-dimensions",
+    title: "Embedding output dimensions changed",
+    layer: "embeddings",
+    before: "embedding dimensions = 1536",
+    after: "embedding dimensions = 3072",
+    priority: "P0",
+    impact: "New vectors can become incompatible with the existing index and break retrieval writes.",
+    action: "Create a compatible index and plan a controlled backfill before switching models.",
+    disclosure: "Synthetic example — not a current vendor announcement.",
+    illustrativeOnly: true,
+  },
+  {
+    id: "example-guardrail-schema",
+    title: "Guardrail response schema changed",
+    layer: "guardrails",
+    before: 'result: { "allowed": true }',
+    after: 'result: { "allowed": true, "policy_revision": "v2" }',
+    priority: "P2",
+    impact: "Strict response validation can turn an otherwise successful guardrail check into an error.",
+    action: "Update response parsing and test both allowed and blocked outcomes.",
+    disclosure: "Synthetic example — not a current vendor announcement.",
+    illustrativeOnly: true,
+  },
+  {
+    id: "example-orchestration-config",
+    title: "Orchestration config key renamed",
+    layer: "orchestration",
+    before: "config.interruptions = true",
+    after: "config.turn_handling.interruptions = true",
+    priority: "P0",
+    impact: "The old key can be ignored, changing interruption behavior without a deploy-time error.",
+    action: "Migrate the config key and run an interruption smoke test on a staging agent.",
     disclosure: "Synthetic example — not a current vendor announcement.",
     illustrativeOnly: true,
   },
 ] as const satisfies readonly SampleDiff[];
+
+export const COMPONENT_LAYER_LABEL: Record<ComponentLayer, string> = {
+  stt: "Speech to text",
+  llm: "Language model",
+  tts: "Text to speech",
+  speech_model: "Speech model",
+  telephony: "Telephony",
+  tools: "Tool execution",
+  memory: "Memory",
+  embeddings: "Embeddings",
+  guardrails: "Guardrails",
+  orchestration: "Orchestration",
+};
+
+export const COMPONENT_LAYER_SHORT_LABEL: Record<ComponentLayer, string> = {
+  stt: "STT",
+  llm: "LLM",
+  tts: "TTS",
+  speech_model: "Speech",
+  telephony: "Phone",
+  tools: "Tools",
+  memory: "Memory",
+  embeddings: "Vectors",
+  guardrails: "Safety",
+  orchestration: "Runtime",
+};
+
+export const VENDOR_LABEL: Record<VendorId, string> = {
+  deepgram: "Deepgram",
+  openai: "OpenAI",
+  anthropic: "Anthropic",
+  elevenlabs: "ElevenLabs",
+  cartesia: "Cartesia",
+  groq: "Groq",
+  twilio: "Twilio",
+  livekit: "LiveKit",
+  vapi: "Vapi",
+  retell: "Retell",
+  pipecat: "Pipecat",
+  e2b: "E2B",
+  supabase: "Supabase",
+  langchain: "LangChain",
+};
+
+export const LAYER_VENDOR_OPTIONS: Record<ComponentLayer, readonly VendorId[]> = {
+  stt: ["deepgram", "openai", "groq"],
+  llm: ["openai", "anthropic", "groq", "vapi", "retell"],
+  tts: ["elevenlabs", "cartesia", "deepgram", "vapi", "retell"],
+  speech_model: ["retell", "openai", "vapi"],
+  telephony: ["twilio", "livekit", "pipecat", "vapi", "retell"],
+  tools: ["e2b", "langchain", "livekit", "pipecat"],
+  memory: ["supabase", "langchain"],
+  embeddings: ["openai", "supabase"],
+  guardrails: ["openai", "anthropic", "langchain"],
+  orchestration: ["pipecat", "livekit", "vapi", "retell", "langchain"],
+};
+
+export const TRACKING_MODE_LABEL: Record<ModelTrackingMode, string> = {
+  pinned: "Pinned",
+  alias: "Dynamic alias",
+  managed: "Provider managed",
+  not_sure: "Not sure",
+};
+
+export function pipelineFromPreset(presetId: string): DeveloperPipeline {
+  const preset = PIPELINE_PRESETS.find((item) => item.id === presetId);
+  if (!preset) throw new Error(`Unknown pipeline preset: ${presetId}`);
+  return {
+    name: preset.name,
+    archetype: preset.archetype,
+    components: preset.components.map((component): PipelineComponent => {
+      const source: PipelineComponent = component;
+      const cloned: PipelineComponent = {
+        id: source.id,
+        layer: source.layer,
+        vendorId: source.vendorId,
+        modelId: source.modelId,
+        modelTracking: source.modelTracking,
+      };
+      if (source.region) cloned.region = source.region;
+      if (source.useCases) cloned.useCases = [...source.useCases];
+      if (source.voiceId) cloned.voiceId = source.voiceId;
+      return cloned;
+    }),
+  };
+}
+
+export function updatePipelineComponent(
+  pipeline: DeveloperPipeline,
+  componentId: string,
+  patch: Partial<Omit<PipelineComponent, "id" | "layer">>,
+): DeveloperPipeline {
+  return {
+    ...pipeline,
+    components: pipeline.components.map((component) =>
+      component.id === componentId ? { ...component, ...patch } : component,
+    ),
+  };
+}
+
+export function addPipelineLayer(
+  pipeline: DeveloperPipeline,
+  layer: ComponentLayer,
+  componentId: string,
+): DeveloperPipeline {
+  const vendorId = LAYER_VENDOR_OPTIONS[layer][0];
+  if (!vendorId) throw new Error(`No vendor available for layer: ${layer}`);
+  return {
+    ...pipeline,
+    components: [
+      ...pipeline.components,
+      { id: componentId, layer, vendorId, modelId: null, modelTracking: "not_sure" },
+    ],
+  };
+}
+
+export function removePipelineComponent(
+  pipeline: DeveloperPipeline,
+  componentId: string,
+): DeveloperPipeline {
+  return {
+    ...pipeline,
+    components: pipeline.components.filter((component) => component.id !== componentId),
+  };
+}
+
+export function sampleDiffForLayer(layer: ComponentLayer): SampleDiff {
+  return SAMPLE_DIFFS.find((diff) => diff.layer === layer) ?? SAMPLE_DIFFS[0]!;
+}

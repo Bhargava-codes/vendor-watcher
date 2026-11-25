@@ -1,4 +1,4 @@
-import { Bell, Play, Search } from "lucide-react";
+import { ArrowLeft, Bell, Play, Search } from "lucide-react";
 import { VIEW_GROUP, VIEW_TITLE, type ViewId } from "./Sidebar";
 
 export function Topbar({
@@ -7,15 +7,25 @@ export function Topbar({
   onQueryChange,
   onRun,
   running,
+  onOpenBuilder,
 }: {
   view: ViewId;
   query: string;
   onQueryChange: (v: string) => void;
   onRun: () => void;
   running: boolean;
+  onOpenBuilder: () => void;
 }) {
   return (
     <header className="flex h-16 shrink-0 items-center gap-4 border-b border-line bg-surface px-6">
+      <button
+        type="button"
+        onClick={onOpenBuilder}
+        aria-label="Back to stack builder"
+        className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-line text-ink-dim transition-colors hover:bg-canvas"
+      >
+        <ArrowLeft className="size-4" />
+      </button>
       <div className="min-w-0">
         <p className="text-[11px] font-medium uppercase tracking-wider text-ink-faint">
           {VIEW_GROUP[view]}

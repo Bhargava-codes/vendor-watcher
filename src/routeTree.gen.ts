@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ApiClassifyRouteImport } from './routes/api/classify'
 import { Route as MockDeepgramChangelogRouteImport } from './routes/mock/deepgram-changelog'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiClassifyRoute = ApiClassifyRouteImport.update({
@@ -31,30 +37,34 @@ const MockDeepgramChangelogRoute = MockDeepgramChangelogRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/api/classify': typeof ApiClassifyRoute
   '/mock/deepgram-changelog': typeof MockDeepgramChangelogRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/api/classify': typeof ApiClassifyRoute
   '/mock/deepgram-changelog': typeof MockDeepgramChangelogRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/api/classify': typeof ApiClassifyRoute
   '/mock/deepgram-changelog': typeof MockDeepgramChangelogRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/classify' | '/mock/deepgram-changelog'
+  fullPaths: '/' | '/auth' | '/api/classify' | '/mock/deepgram-changelog'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/classify' | '/mock/deepgram-changelog'
-  id: '__root__' | '/' | '/api/classify' | '/mock/deepgram-changelog'
+  to: '/' | '/auth' | '/api/classify' | '/mock/deepgram-changelog'
+  id: '__root__' | '/' | '/auth' | '/api/classify' | '/mock/deepgram-changelog'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
   ApiClassifyRoute: typeof ApiClassifyRoute
   MockDeepgramChangelogRoute: typeof MockDeepgramChangelogRoute
 }
@@ -66,6 +76,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/classify': {
@@ -87,6 +104,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
   ApiClassifyRoute: ApiClassifyRoute,
   MockDeepgramChangelogRoute: MockDeepgramChangelogRoute,
 }
