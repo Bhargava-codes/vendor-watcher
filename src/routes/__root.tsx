@@ -18,7 +18,7 @@ function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-7xl font-bold text-foreground">404</h1>
+        <h1 className="text-7xl font-semibold text-foreground">404</h1>
         <h2 className="mt-4 text-xl font-semibold text-foreground">Page not found</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           The page you're looking for doesn't exist or has been moved.
@@ -79,19 +79,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "DriftWatch — Dependency drift monitoring for AI builders" },
+      { title: "Mooring — The reliability agent for your AI stack" },
       {
         name: "description",
         content:
-          "Configure your voice or agentic AI stack and catch vendor breaking changes before they reach production.",
+          "Ship your agent. Mooring watches your model, tool, and voice vendors, scores stack reliability, and routes important changes before users notice.",
       },
-      { name: "author", content: "DriftWatch" },
+      { name: "author", content: "Mooring" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:title", content: "DriftWatch — Dependency drift monitoring for AI builders" },
-      { name: "twitter:title", content: "DriftWatch — Dependency drift monitoring for AI builders" },
-      { property: "og:description", content: "Configure your voice or agentic AI stack and catch vendor breaking changes before they reach production." },
-      { name: "twitter:description", content: "Configure your voice or agentic AI stack and catch vendor breaking changes before they reach production." },
+      { property: "og:title", content: "Mooring — The reliability agent for your AI stack" },
+      { name: "twitter:title", content: "Mooring — The reliability agent for your AI stack" },
+      { property: "og:description", content: "Ship your agent. Mooring watches your model, tool, and voice vendors, scores stack reliability, and routes important changes before users notice." },
+      { name: "twitter:description", content: "Ship your agent. Mooring watches your model, tool, and voice vendors, scores stack reliability, and routes important changes before users notice." },
     ],
     links: [
       {
@@ -102,7 +102,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap",
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],

@@ -15,6 +15,13 @@
       "when": 1795588865049,
       "tag": "0001_create_private_user_profiles",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795762997231,
+      "tag": "0002_public_landing_change_highlights",
+      "breakpoints": true
     }
   ]
 }

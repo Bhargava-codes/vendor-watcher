@@ -55,6 +55,24 @@ describe("pipeline starter data", () => {
     ).toBe(true);
   });
 
+  test("the RAG preset maps the four approved stack layers", () => {
+    const rag = presetById("rag-agent");
+
+    expect(rag.components.map((component) => component.layer)).toEqual([
+      "llm",
+      "embeddings",
+      "vector_store",
+      "orchestration",
+    ]);
+    expect(rag.components.map((component) => component.vendorId)).toEqual([
+      "anthropic",
+      "openai",
+      "pinecone",
+      "langgraph",
+    ]);
+    expect(rag.components[1].modelId).toBe("text-embedding-3-small");
+  });
+
   test("sample diffs are always disclosed as synthetic examples", () => {
     expect(SAMPLE_DIFFS.length).toBeGreaterThan(0);
     expect(SAMPLE_DIFFS.every((diff) => diff.illustrativeOnly)).toBe(true);
@@ -79,7 +97,7 @@ describe("pipeline starter data", () => {
 
     expect(updated.components[0].modelId).toBe("nova-2");
     expect(pipeline.components[0].modelId).toBe("nova-3");
-    expect(PIPELINE_PRESETS[0].components[0].modelId).toBe("nova-3");
+    expect(presetById("pipecat-voice").components[0].modelId).toBe("nova-3");
   });
 
   test("adding and removing a layer preserves existing components", () => {

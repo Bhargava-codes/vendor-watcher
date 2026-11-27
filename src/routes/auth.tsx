@@ -1,22 +1,23 @@
 import { useState } from "react";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { ArrowLeft, ArrowRight, CheckCircle2, Loader2, Radar } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
+import { MooringLogo } from "@/components/driftwatch/MooringLogo";
 import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/components/auth/AuthProvider";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — DriftWatch" },
+      { title: "Sign in — Mooring" },
       {
         name: "description",
-        content: "Sign in to DriftWatch with Google or Microsoft to save your AI dependency watchlist.",
+        content: "Sign in to Mooring with Google or Microsoft to save your AI dependency watchlist.",
       },
       { property: "og:type", content: "website" },
-      { property: "og:title", content: "Sign in — DriftWatch" },
+      { property: "og:title", content: "Sign in — Mooring" },
       {
         property: "og:description",
-        content: "Sign in to DriftWatch with Google or Microsoft to save your AI dependency watchlist.",
+        content: "Sign in to Mooring with Google or Microsoft to save your AI dependency watchlist.",
       },
       { name: "twitter:card", content: "summary" },
     ],
@@ -72,11 +73,8 @@ function AuthPage() {
     <div className="flex min-h-screen flex-col bg-canvas">
       <header className="border-b border-line bg-surface px-4 py-4 sm:px-6">
         <div className="mx-auto flex max-w-6xl items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5" aria-label="DriftWatch home">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-brand text-primary-foreground">
-              <Radar className="size-4" />
-            </span>
-            <span className="text-sm font-semibold tracking-tight text-ink">DriftWatch</span>
+          <Link to="/" aria-label="Mooring home">
+            <MooringLogo />
           </Link>
           <Link to="/" className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-dim hover:text-ink">
             <ArrowLeft className="size-3.5" /> Back to stack builder
@@ -86,7 +84,7 @@ function AuthPage() {
 
       <main className="flex flex-1 items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
-          <div className="rounded-2xl border border-line bg-surface p-6 shadow-[0_20px_60px_-45px_var(--nav)] sm:p-8">
+          <div className="rounded-xl border border-line bg-surface p-6 sm:p-8">
             {loading ? (
               <div className="flex min-h-64 items-center justify-center" aria-label="Checking account session">
                 <Loader2 className="size-5 animate-spin text-brand" />
@@ -148,11 +146,11 @@ function AuthPage() {
                   </p>
                 )}
 
-                <p className="mt-6 text-center text-[11px] leading-5 text-ink-faint">By continuing, you agree to use DriftWatch for your own development workspace. New accounts are created automatically on first sign-in.</p>
+                <p className="mt-6 text-center text-[11px] leading-5 text-ink-faint">By continuing, you agree to use Mooring for your own development workspace. New accounts are created automatically on first sign-in.</p>
               </>
             )}
           </div>
-          <p className="mt-5 text-center font-mono text-[10px] text-ink-faint">OAuth secured · No password stored by DriftWatch</p>
+          <p className="mt-5 text-center font-mono text-[10px] text-ink-faint">OAuth secured · No password stored by Mooring</p>
         </div>
       </main>
     </div>

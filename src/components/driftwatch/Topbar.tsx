@@ -49,7 +49,7 @@ export function Topbar({
           type="button"
           onClick={onRun}
           disabled={running}
-          className="inline-flex h-9 items-center gap-2 rounded-lg bg-brand px-3.5 text-sm font-medium text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-9 items-center gap-2 rounded-lg bg-brand px-3.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Play className="size-3.5" />
           {running ? "Running…" : "Run watch"}

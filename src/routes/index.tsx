@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { SEED_CHANGES, type Change } from "@/lib/drift-data";
@@ -25,24 +25,32 @@ import { SettingsView } from "@/components/driftwatch/SettingsView";
 import { HowItWorksView } from "@/components/driftwatch/HowItWorksView";
 import { RunWatchOverlay } from "@/components/driftwatch/RunWatchOverlay";
 import { DeveloperLanding } from "@/components/driftwatch/DeveloperLanding";
+import { getPublicChangeHighlights } from "@/lib/public-changes.functions";
+
+const publicChangesQueryOptions = queryOptions({
+  queryKey: ["public-change-highlights"],
+  queryFn: () => getPublicChangeHighlights(),
+  staleTime: 5 * 60 * 1000,
+});
 
 export const Route = createFileRoute("/")({
   validateSearch: (search): { view?: "console" } =>
     search["view"] === "console" ? { view: "console" } : {},
+  loader: ({ context }) => context.queryClient.ensureQueryData(publicChangesQueryOptions),
   head: () => ({
     meta: [
-      { title: "DriftWatch — Dependency drift monitoring for AI builders" },
+      { title: "Mooring — The reliability agent for your AI stack" },
       {
         name: "description",
         content:
-          "Configure your voice or agentic AI stack and catch vendor breaking changes before they reach production.",
+          "Ship your agent. Mooring watches your model, tool, and voice vendors, scores stack reliability, and routes important changes before users notice.",
       },
       { property: "og:type", content: "website" },
-      { property: "og:title", content: "DriftWatch — Dependency drift monitoring for AI builders" },
+      { property: "og:title", content: "Mooring — The reliability agent for your AI stack" },
       {
         property: "og:description",
         content:
-          "Configure your voice or agentic AI stack and catch vendor breaking changes before they reach production.",
+          "Ship your agent. Mooring watches your model, tool, and voice vendors, scores stack reliability, and routes important changes before users notice.",
       },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -52,12 +60,13 @@ export const Route = createFileRoute("/")({
 
 function DriftWatchApp() {
   const search = Route.useSearch();
+  const { data: publicChanges } = useSuspenseQuery(publicChangesQueryOptions);
   const [surface, setSurface] = useState<"landing" | "console">(
     search.view === "console" ? "console" : "landing",
   );
 
   if (surface === "landing") {
-    return <DeveloperLanding onOpenConsole={() => setSurface("console")} />;
+    return <DeveloperLanding onOpenConsole={() => setSurface("console")} highlights={publicChanges} />;
   }
 
   return <MonitoringConsole onOpenBuilder={() => setSurface("landing")} />;

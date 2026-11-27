@@ -44,9 +44,22 @@ const LAYER_ICON: Record<ComponentLayer, LucideIcon> = {
   tools: Wrench,
   memory: MemoryStick,
   embeddings: Database,
+  vector_store: Database,
   guardrails: ShieldCheck,
   orchestration: GitBranch,
 };
+
+function modelPlaceholder(component: PipelineComponent) {
+  if (component.layer === "tts") return "model or voice ID";
+  if (component.layer === "vector_store") return "index name";
+  if (component.layer === "orchestration") return "version, e.g. 0.4.x";
+  if (component.layer === "memory") return "database or table";
+  if (component.layer === "tools") return "tool or server ID";
+  if (component.vendorId === "anthropic") return "e.g. claude-sonnet-4-5";
+  if (component.vendorId === "openai") return "e.g. gpt-4.1";
+  if (component.vendorId === "deepgram") return "e.g. nova-3";
+  return "model or resource ID";
+}
 
 function ComponentCard({
   component,
@@ -72,7 +85,7 @@ function ComponentCard({
     <article
       className={cn(
         "w-full min-w-0 flex-1 rounded-xl border bg-surface transition-colors",
-        selected ? "border-brand shadow-[0_0_0_2px_var(--brand-soft)]" : "border-line",
+        selected ? "border-brand ring-2 ring-brand/10" : "border-line",
       )}
     >
       <div className="flex items-center gap-2 border-b border-line px-3 py-2.5">
@@ -104,7 +117,7 @@ function ComponentCard({
             type="button"
             onClick={onRemove}
             aria-label={`Remove ${COMPONENT_LAYER_LABEL[component.layer]}`}
-            className="flex size-7 shrink-0 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-p0-soft hover:text-p0"
+            className="flex size-11 shrink-0 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-p0-soft hover:text-p0 sm:size-7"
           >
             <Trash2 className="size-3.5" />
           </button>
@@ -125,7 +138,7 @@ function ComponentCard({
                 modelTracking: "not_sure",
               })
             }
-            className="h-8 w-full rounded-md border border-line bg-canvas px-2 text-xs font-medium text-ink outline-none focus:border-brand"
+            className="h-11 w-full rounded-md border border-line bg-canvas px-2 text-xs font-medium text-ink outline-none focus:border-brand sm:h-8"
           >
             {vendors.map((vendor) => (
               <option key={vendor} value={vendor}>
@@ -143,8 +156,8 @@ function ComponentCard({
             value={component.modelId ?? ""}
             suppressHydrationWarning
             onChange={(event) => onChange({ modelId: event.target.value || null })}
-            placeholder={component.layer === "tts" ? "model or voice ID" : "e.g. nova-3"}
-            className="h-8 w-full rounded-md border border-line bg-canvas px-2 font-mono text-[11px] text-ink outline-none placeholder:font-sans placeholder:text-ink-faint focus:border-brand"
+            placeholder={modelPlaceholder(component)}
+            className="h-11 w-full rounded-md border border-line bg-canvas px-2 font-mono text-[11px] text-ink outline-none placeholder:font-sans placeholder:text-ink-faint focus:border-brand sm:h-8"
           />
         </label>
 
@@ -157,7 +170,7 @@ function ComponentCard({
             onChange={(event) =>
               onChange({ modelTracking: event.target.value as ModelTrackingMode })
             }
-            className="h-8 w-full rounded-md border border-line bg-canvas px-2 text-xs text-ink outline-none focus:border-brand"
+            className="h-11 w-full rounded-md border border-line bg-canvas px-2 text-xs text-ink outline-none focus:border-brand sm:h-8"
           >
             {Object.entries(TRACKING_MODE_LABEL).map(([value, label]) => (
               <option key={value} value={value}>
@@ -169,7 +182,7 @@ function ComponentCard({
 
         {component.modelTracking === "alias" && (
           <p className="rounded-md bg-p1-soft px-2 py-1.5 text-[10px] leading-relaxed text-p1">
-            Aliases can repoint without a deploy. DriftWatch treats them as higher drift risk.
+            Aliases can repoint without a deploy. Mooring treats them as higher drift risk.
           </p>
         )}
       </div>
@@ -274,7 +287,7 @@ export function PipelineCanvas({
             type="button"
             onClick={() => setAdding(true)}
             disabled={availableLayers.length === 0}
-            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-dashed border-line px-3 text-xs font-medium text-ink-dim transition-colors hover:border-brand hover:text-brand disabled:opacity-50"
+            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-lg border border-dashed border-line px-3 text-xs font-medium text-ink-dim transition-colors hover:border-brand hover:text-brand disabled:opacity-50 sm:h-9"
           >
             <Plus className="size-3.5" /> Add another layer
           </button>

@@ -202,7 +202,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_public_change_highlights: {
+        Args: never
+        Returns: {
+          after_text: string
+          before_text: string
+          change_type: string
+          detected_at: string
+          entry_date: string
+          entry_url: string
+          id: string
+          interpretation: string
+          priority: string
+          routed_to: string
+          section: string
+          vendor: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

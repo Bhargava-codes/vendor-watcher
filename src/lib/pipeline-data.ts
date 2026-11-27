@@ -12,6 +12,7 @@ export const COMPONENT_LAYERS = [
   "tools",
   "memory",
   "embeddings",
+  "vector_store",
   "guardrails",
   "orchestration",
 ] as const;
@@ -32,6 +33,8 @@ export const VENDOR_IDS = [
   "e2b",
   "supabase",
   "langchain",
+  "pinecone",
+  "langgraph",
 ] as const;
 export type VendorId = (typeof VENDOR_IDS)[number];
 
@@ -70,8 +73,40 @@ export interface PipelinePreset extends DeveloperPipeline {
  */
 export const PIPELINE_PRESETS = [
   {
+    id: "rag-agent",
+    label: "RAG agent",
+    name: "RAG agent",
+    description: "A retrieval agent with a language model, embeddings, vector store, and agent framework.",
+    archetype: "agentic",
+    verification: "starter_example",
+    setupNote: "A configurable starting point. Confirm the exact models, index, and framework version used by your agent.",
+    sourceReferences: [],
+    components: [
+      { id: "rag-llm", layer: "llm", vendorId: "anthropic", modelId: null, modelTracking: "alias" },
+      { id: "rag-embeddings", layer: "embeddings", vendorId: "openai", modelId: "text-embedding-3-small", modelTracking: "pinned" },
+      { id: "rag-vector-store", layer: "vector_store", vendorId: "pinecone", modelId: null, modelTracking: "managed" },
+      { id: "rag-orchestration", layer: "orchestration", vendorId: "langgraph", modelId: null, modelTracking: "not_sure" },
+    ],
+  },
+  {
+    id: "multi-agent-workflow",
+    label: "Multi-agent workflow",
+    name: "Multi-agent workflow",
+    description: "An orchestrated agent workflow with tools and guardrails.",
+    archetype: "agentic",
+    verification: "starter_example",
+    setupNote: "A configurable example for a multi-agent runtime. Set your actual model and framework versions before monitoring.",
+    sourceReferences: [],
+    components: [
+      { id: "multi-llm", layer: "llm", vendorId: "openai", modelId: null, modelTracking: "alias" },
+      { id: "multi-orchestration", layer: "orchestration", vendorId: "langgraph", modelId: null, modelTracking: "not_sure" },
+      { id: "multi-tools", layer: "tools", vendorId: "e2b", modelId: null, modelTracking: "managed" },
+      { id: "multi-guardrails", layer: "guardrails", vendorId: "anthropic", modelId: null, modelTracking: "managed" },
+    ],
+  },
+  {
     id: "pipecat-voice",
-    label: "Pipecat voice pipeline",
+    label: "Voice agent (Pipecat)",
     name: "Pipecat voice pipeline",
     description: "A code-first STT → LLM → TTS starter configuration.",
     archetype: "voice",
@@ -213,7 +248,7 @@ export const PIPELINE_PRESETS = [
   },
   {
     id: "agentic-tool-use",
-    label: "Agentic tool-use starter",
+    label: "Tool-use agent",
     name: "Agentic tool-use starter",
     description: "A customizable LLM, sandbox, and retrieval stack.",
     archetype: "agentic",
@@ -360,6 +395,18 @@ export const SAMPLE_DIFFS = [
     illustrativeOnly: true,
   },
   {
+    id: "example-vector-index-contract",
+    title: "Vector index dimension changed",
+    layer: "vector_store",
+    before: "index dimensions = 1536; metric = cosine",
+    after: "index dimensions = 3072; metric = cosine",
+    priority: "P0",
+    impact: "New embedding writes can fail or retrieval can silently degrade when the index no longer matches the model output.",
+    action: "Keep embedding and index dimensions aligned, create a compatible index, and run a retrieval regression check before cutover.",
+    disclosure: "Synthetic example — not a current vendor announcement.",
+    illustrativeOnly: true,
+  },
+  {
     id: "example-guardrail-schema",
     title: "Guardrail response schema changed",
     layer: "guardrails",
@@ -394,6 +441,7 @@ export const COMPONENT_LAYER_LABEL: Record<ComponentLayer, string> = {
   tools: "Tool execution",
   memory: "Memory",
   embeddings: "Embeddings",
+  vector_store: "Vector store",
   guardrails: "Guardrails",
   orchestration: "Orchestration",
 };
@@ -406,7 +454,8 @@ export const COMPONENT_LAYER_SHORT_LABEL: Record<ComponentLayer, string> = {
   telephony: "Phone",
   tools: "Tools",
   memory: "Memory",
-  embeddings: "Vectors",
+  embeddings: "Embed",
+  vector_store: "Vector",
   guardrails: "Safety",
   orchestration: "Runtime",
 };
@@ -426,6 +475,8 @@ export const VENDOR_LABEL: Record<VendorId, string> = {
   e2b: "E2B",
   supabase: "Supabase",
   langchain: "LangChain",
+  pinecone: "Pinecone",
+  langgraph: "LangGraph",
 };
 
 export const LAYER_VENDOR_OPTIONS: Record<ComponentLayer, readonly VendorId[]> = {
@@ -437,8 +488,9 @@ export const LAYER_VENDOR_OPTIONS: Record<ComponentLayer, readonly VendorId[]> =
   tools: ["e2b", "langchain", "livekit", "pipecat"],
   memory: ["supabase", "langchain"],
   embeddings: ["openai", "supabase"],
+  vector_store: ["pinecone", "supabase"],
   guardrails: ["openai", "anthropic", "langchain"],
-  orchestration: ["pipecat", "livekit", "vapi", "retell", "langchain"],
+  orchestration: ["pipecat", "livekit", "vapi", "retell", "langchain", "langgraph"],
 };
 
 export const TRACKING_MODE_LABEL: Record<ModelTrackingMode, string> = {

@@ -32,7 +32,7 @@ export function DiffInspector({ component }: { component: PipelineComponent }) {
   };
 
   return (
-    <div className="overflow-hidden rounded-xl border border-terminal-line bg-terminal text-terminal-foreground shadow-[0_18px_50px_-30px_var(--nav)]">
+    <div className="overflow-hidden rounded-xl border border-terminal-line bg-terminal text-terminal-foreground">
       <div className="flex flex-wrap items-center gap-3 border-b border-terminal-line px-4 py-3">
         <div className="flex gap-1.5" aria-hidden="true">
           <span className="size-2 rounded-full bg-terminal-muted/60" />
@@ -41,7 +41,7 @@ export function DiffInspector({ component }: { component: PipelineComponent }) {
         </div>
         <div className="flex min-w-0 items-center gap-2 font-mono text-[11px] text-terminal-muted">
           <TerminalSquare className="size-3.5 shrink-0" />
-          <span className="truncate">driftwatch inspect --layer {component.layer}</span>
+          <span className="truncate">mooring inspect --layer {component.layer}</span>
         </div>
         <span className="ml-auto rounded-full border border-terminal-line px-2 py-0.5 font-mono text-[9px] font-medium uppercase tracking-wider text-terminal-muted">
           Synthetic preview
@@ -94,7 +94,7 @@ export function DiffInspector({ component }: { component: PipelineComponent }) {
         <button
           type="button"
           onClick={() => void copyDiff()}
-          className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md border border-terminal-line px-2.5 text-[11px] font-medium text-terminal-foreground transition-colors hover:bg-terminal-panel sm:ml-auto"
+          className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-md border border-terminal-line px-2.5 text-[11px] font-medium text-terminal-foreground transition-colors hover:bg-terminal-panel sm:ml-auto sm:h-8"
         >
           {copied ? <Check className="size-3.5 text-diff-add" /> : <Copy className="size-3.5" />}
           {copied ? "Copied" : "Copy raw diff"}
