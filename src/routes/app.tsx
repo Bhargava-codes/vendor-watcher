@@ -2,13 +2,14 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Activity, Anchor, Boxes, ChevronDown, ChevronRight, ExternalLink, Home, Plug, Send, SlidersHorizontal, Users } from "lucide-react";
+import { Activity, Anchor, Boxes, ChevronDown, ChevronRight, Bell, ExternalLink, Home, MoreHorizontal, Plug, Send, SlidersHorizontal, Users } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { BrandIcon } from "@/components/brand/BrandIcon";
-import { getWorkspace, scanWorkspace, updateAlert } from "@/lib/workspace.functions";
-import { PENALTY, SEVERITY_ORDER, type Severity } from "@/lib/reliability";
+import { getWorkspace, updateAlert } from "@/lib/workspace.functions";
+import { PENALTY, SEVERITY_ORDER, scoreTimeline, type Severity, type TimelineAlert } from "@/lib/reliability";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/app")({
   head: () => ({
@@ -137,17 +138,28 @@ function HomeView({ ws, onVendor }: { ws: Workspace; onVendor: () => void }) {
   const qc = useQueryClient();
   const { user } = useAuth();
   const update = useServerFn(updateAlert);
-  const rescan = useServerFn(scanWorkspace);
   const mutate = useMutation({ mutationFn: update, onSuccess: () => qc.invalidateQueries({ queryKey: ["workspace", user?.id] }) });
-  const scan = useMutation({ mutationFn: () => rescan(), onSuccess: () => qc.invalidateQueries({ queryKey: ["workspace", user?.id] }) });
   const [menu, setMenu] = useState<string | null>(null);
+  const [more, setMore] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [how, setHow] = useState(false);
   const [showLow, setShowLow] = useState(false);
   const latest = ws.scores[0];
   const vendors = vendorRows(ws).filter((v) => v.score != null);
   const critical = ws.alerts.filter((a) => a.severity === "Critical").length;
-  const people = [...new Set(["you", ...ws.owners.map((o) => o.email).filter((e): e is string => !!e)])];
+  const people = [...new Set([...ws.owners.map((o) => o.email), ...ws.alerts.map((a) => a.sent_to)].filter((e): e is string => !!e && e !== "you"))];
+  const assign = (r: Alert, to: string | null) => {
+    const prev = r.sent_to;
+    mutate.mutate({ data: { id: r.id, sent_to: to } });
+    setMenu(null);
+    if (to) toast(`Assigned to ${to}`, { description: "Email delivery isn't connected yet, so they won't get a message.", action: { label: "Undo", onClick: () => mutate.mutate({ data: { id: r.id, sent_to: prev } }) } });
+  };
+  const remind = (r: Alert, days: number) => {
+    const d = new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
+    mutate.mutate({ data: { id: r.id, remind_at: d } });
+    setMore(null);
+    toast(`We'll remind you on ${fmtDay(d)} if this is still open`, { action: { label: "Undo", onClick: () => mutate.mutate({ data: { id: r.id, remind_at: null } }) } });
+  };
   const lows = ws.alerts.filter((a) => a.severity === "Low");
 
   const row = (r: Alert, owner: string) => (
@@ -156,21 +168,17 @@ function HomeView({ ws, onVendor }: { ws: Workspace; onVendor: () => void }) {
         <div className="w-[80px] shrink-0"><SevPill sev={r.severity} /></div>
         <button onClick={() => setExpanded(expanded === r.id ? null : r.id)} className="min-w-0 flex-[1_1_180px] text-left">
           <p className="text-[15px] font-normal text-ink">{r.title}</p>
-          <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-ink-dim"><BrandIcon name={r.vendor} className="size-4 rounded border-0" /><span className="text-ink">{r.kind}</span> · {r.vendor}{r.product ? ` · ${r.product}` : ""}</p>
+          <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-ink-dim"><BrandIcon name={r.vendor} className="size-4 rounded border-0" /><span className="text-ink">{r.kind}</span> · {r.vendor}{r.product ? ` · ${r.product}` : ""}{r.remind_at && <span className="inline-flex items-center gap-1 text-ink-dim"> · <Bell className="size-3" />Remind {fmtDay(r.remind_at)}</span>}</p>
         </button>
         <p className="hidden w-28 text-right text-[13px] leading-tight text-ink-dim sm:block">{r.deadline}</p>
-        <button onClick={() => setMenu(menu === r.id ? null : r.id)} className="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink hover:bg-canvas">
-          <Send className="size-3.5" />{r.sent_to ? `Assigned to ${r.sent_to}` : "Send"}
+        <button onClick={() => { setMore(null); setMenu(menu === r.id ? null : r.id); }} className="flex max-w-[220px] shrink-0 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink hover:bg-canvas">
+          {r.sent_to ? <><span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-brand text-[10px] uppercase text-primary-foreground">{r.sent_to[0]}</span><span className="truncate">Sent to {r.sent_to.split("@")[0]}</span></> : people.length === 1 ? <><Send className="size-3.5" />Send to {people[0]!.split("@")[0]} <ChevronDown className="size-3" /></> : <><Send className="size-3.5" />Send</>}
         </button>
+        <button aria-label="More actions" onClick={() => { setMenu(null); setMore(more === r.id ? null : r.id); }} className="shrink-0 rounded-md p-1.5 text-ink-dim hover:bg-canvas"><MoreHorizontal className="size-4" /></button>
         <button aria-label="Details" onClick={() => setExpanded(expanded === r.id ? null : r.id)} className="p-1 text-ink-dim"><ChevronDown className={cn("size-4 transition-transform", expanded === r.id && "rotate-180")} /></button>
       </div>
-      {menu === r.id && (
-        <div className="absolute right-10 top-12 z-10 w-56 rounded-lg border border-line bg-surface p-1 shadow-lg">
-          {people.map((p) => (
-            <button key={p} onClick={() => { mutate.mutate({ data: { id: r.id, sent_to: p } }); setMenu(null); }} className={cn("block w-full truncate rounded-md px-3 py-1.5 text-left text-sm hover:bg-canvas", p === owner ? "font-medium text-brand" : "text-ink")}>{p}{p === owner && " · Suggested"}</button>
-          ))}
-        </div>
-      )}
+      {menu === r.id && <SendMenu people={people} owner={owner} onPick={(p) => assign(r, p)} onClose={() => setMenu(null)} />}
+      {more === r.id && <MoreMenu alert={r} onRemind={(d) => remind(r, d)} onClose={() => setMore(null)} />}
       {expanded === r.id && (
         <div className="space-y-2 border-t border-line bg-canvas/50 px-5 py-4 text-sm">
           {r.why && <p className="text-ink"><span className="text-ink-dim">Why it matters: </span>{r.why}</p>}
@@ -187,10 +195,7 @@ function HomeView({ ws, onVendor }: { ws: Workspace; onVendor: () => void }) {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[15px] text-ink-dim">Your agent's reliability</p>
-        <button onClick={() => scan.mutate()} disabled={scan.isPending} className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-ink hover:bg-canvas disabled:opacity-60">{scan.isPending ? "Checking…" : "Check again"}</button>
-      </div>
+      <p className="text-[15px] text-ink-dim">Your agent's reliability</p>
       <div className="mt-2 flex flex-wrap items-start gap-x-10 gap-y-3">
         <p className="leading-none text-ink">{latest?.total != null ? <><span className="text-[64px] font-normal">{latest.total}</span><span className="ml-1 text-xl text-ink-faint">/ 100</span></> : <span className="text-[28px] font-normal text-ink-dim">Not enough data yet</span>}</p>
         <div>
@@ -229,12 +234,87 @@ function HomeView({ ws, onVendor }: { ws: Workspace; onVendor: () => void }) {
   );
 }
 
+function fmtDay(d: string) {
+  return new Date(`${d}T00:00:00Z`).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+function SendMenu({ people, owner, onPick, onClose }: { people: string[]; owner: string; onPick: (p: string) => void; onClose: () => void }) {
+  const [email, setEmail] = useState("");
+  const [inviting, setInviting] = useState(people.length === 0);
+  const [q, setQ] = useState("");
+  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const sorted = [...people].sort((a, b) => (b === owner ? 1 : 0) - (a === owner ? 1 : 0)).filter((p) => p.toLowerCase().includes(q.toLowerCase()));
+  return (
+    <div className="absolute right-3 top-14 z-20 w-80 rounded-lg border border-line bg-surface p-3 shadow-lg">
+      {inviting ? (
+        <form onSubmit={(e) => { e.preventDefault(); if (valid) onPick(email.trim()); }}>
+          <p className="text-[15px] font-medium text-ink">Who should fix this?</p>
+          <p className="mt-1 text-[13px] leading-5 text-ink-dim">{people.length ? "Add a teammate's email." : "No teammates in this workspace yet. Add an email and we'll send them the diff."}</p>
+          <div className="mt-3 flex gap-2">
+            <input autoFocus type="email" aria-label="Teammate email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="dev@company.com" className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 font-mono text-[13px] text-ink outline-hidden focus:border-brand" />
+            <button type="submit" disabled={!valid} className="shrink-0 rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-50">Send</button>
+          </div>
+          <p className="mt-2.5 text-xs leading-5 text-ink-faint">They get the diff, the impact on your stack, and the suggested fix. Joining the workspace is optional.</p>
+        </form>
+      ) : (
+        <>
+          {people.length > 3 && <input aria-label="Search teammates" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search teammates" className="mb-1.5 w-full rounded-md border border-line px-2.5 py-1.5 text-[13px] outline-hidden focus:border-brand" />}
+          {sorted.map((p) => (
+            <button key={p} onClick={() => onPick(p)} className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm hover:bg-canvas">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-canvas text-[11px] uppercase text-ink">{p[0]}</span>
+              <span className="min-w-0 flex-1 truncate text-ink">{p}</span>
+              {p === owner && <span className="shrink-0 text-xs text-brand">Suggested</span>}
+            </button>
+          ))}
+          <button onClick={() => setInviting(true)} className="mt-1 w-full rounded-md px-2 py-1.5 text-left text-sm text-brand hover:bg-canvas">+ Invite a teammate</button>
+        </>
+      )}
+      <button onClick={onClose} aria-label="Close" className="absolute right-2 top-2 text-xs text-ink-faint hover:text-ink">✕</button>
+    </div>
+  );
+}
+
+function MoreMenu({ alert, onRemind, onClose }: { alert: Alert; onRemind: (days: number) => void; onClose: () => void }) {
+  const [connect, setConnect] = useState<string | null>(null);
+  const copyMd = async () => {
+    const md = `## [${alert.vendor}] ${alert.title}\n\n- Severity: ${alert.severity}\n- Type: ${alert.kind}${alert.product ? `\n- Product: ${alert.product}` : ""}${alert.deadline ? `\n- Deadline: ${alert.deadline}` : ""}\n\n${alert.why ? `**Why it matters:** ${alert.why}\n\n` : ""}${alert.action ? `**Fix:** ${alert.action}\n\n` : ""}${alert.source_url ? `Source: ${alert.source_url}\n` : ""}`;
+    try { await navigator.clipboard.writeText(md); toast("Copied as Markdown"); } catch { toast("Could not copy to the clipboard"); }
+    onClose();
+  };
+  return (
+    <div className="absolute right-3 top-14 z-20 w-72 rounded-lg border border-line bg-surface p-3 shadow-lg">
+      {connect ? (
+        <>
+          <p className="text-[15px] font-medium text-ink">Connect {connect}</p>
+          <p className="mt-1 text-[13px] leading-5 text-ink-dim">Authorize once and tickets go straight into your project. We only create issues, nothing else.</p>
+          <button disabled className="mt-3 w-full rounded-md bg-brand px-3 py-1.5 text-sm font-medium text-primary-foreground opacity-50">Connect {connect} · coming soon</button>
+          <button onClick={copyMd} className="mt-2 w-full rounded-md border border-line px-3 py-1.5 text-sm text-ink hover:bg-canvas">Copy as Markdown instead</button>
+        </>
+      ) : (
+        <>
+          <p className="px-1 text-[11px] font-medium uppercase text-ink-faint">Push as ticket</p>
+          {["Jira", "Azure DevOps", "Linear"].map((t) => <button key={t} onClick={() => setConnect(t)} className="flex w-full items-center gap-2.5 rounded-md px-1 py-1.5 text-left text-sm text-ink hover:bg-canvas"><BrandIcon name={t} className="size-5 rounded border-0" />{t}</button>)}
+          <button onClick={copyMd} className="w-full rounded-md px-1 py-1.5 text-left text-sm text-ink hover:bg-canvas">Other tool… <span className="text-ink-faint">copy as Markdown</span></button>
+          <p className="mt-2 px-1 text-[11px] font-medium uppercase text-ink-faint">Remind me in</p>
+          <div className="mt-1.5 flex gap-2">{[7, 14, 30].map((d) => <button key={d} onClick={() => onRemind(d)} className="flex-1 rounded-md border border-line py-1.5 text-sm text-ink hover:bg-canvas">{d} days</button>)}</div>
+        </>
+      )}
+      <button onClick={onClose} aria-label="Close" className="absolute right-2 top-2 text-xs text-ink-faint hover:text-ink">✕</button>
+    </div>
+  );
+}
+
 function ReliabilityView({ ws }: { ws: Workspace }) {
   const [how, setHow] = useState(false);
   const latest = ws.scores[0];
-  const history = [...ws.scores].reverse().filter((s) => s.total != null);
-  const pts = history.map((s) => s.total as number);
-  const path = pts.length > 1 ? pts.map((p, i) => `${(i / (pts.length - 1)) * 300},${(100 - p) * 0.8 + 10}`).join(" L") : "";
+  const weights: Record<string, number> = {};
+  for (const s of ws.stack) weights[s.vendor] = (weights[s.vendor] ?? 0) + (s.product ? 1 : 0);
+  const timeline = scoreTimeline(ws.alerts as TimelineAlert[], weights, new Date().toISOString().slice(0, 10), 90);
+  const lo = Math.min(...timeline.map((p) => p.total));
+  const floor = Math.max(0, Math.floor((lo - 5) / 10) * 10);
+  const y = (v: number) => 10 + ((100 - v) / Math.max(1, 100 - floor)) * 80;
+  const path = timeline.map((p, i) => `${(i / (timeline.length - 1)) * 300},${y(p.total)}`).join(" L");
+  const biggest = [...ws.alerts].sort((a, b) => PENALTY[b.severity as Severity] - PENALTY[a.severity as Severity])[0];
   const vendors = vendorRows(ws);
   const perType = latest?.per_type ?? {};
   return (
@@ -249,14 +329,15 @@ function ReliabilityView({ ws }: { ws: Workspace }) {
           <button onClick={() => setHow(!how)} className="mt-1 text-sm text-brand">How it's calculated</button>
         </div>
         <div className="rounded-lg border border-line bg-surface p-5">
-          <p className="text-sm text-ink-dim">Score over your checks</p>
-          {path ? (
+          <p className="text-sm text-ink-dim">Score over the last 90 days</p>
+          {(
             <svg viewBox="0 0 300 100" className="mt-3 h-24 w-full" preserveAspectRatio="none">
               <path d="M0,10 H300 M0,50 H300 M0,90 H300" className="stroke-line" strokeWidth="0.5" />
               <path d={`M${path}`} fill="none" className="stroke-ink" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
             </svg>
-          ) : <p className="mt-6 text-sm text-ink-dim">The trend appears after your next check.</p>}
-          <div className="mt-1 flex justify-between text-xs text-ink-faint"><span>{history[0] ? `First check · ${history[0].total}` : ""}</span><span>{latest?.total != null ? `Latest · ${latest.total}` : ""}</span></div>
+          )}
+          <div className="mt-1 flex justify-between text-xs text-ink-faint"><span>90 days ago · {timeline[0]!.total}</span><span>Today · {timeline.at(-1)!.total}</span></div>
+          {biggest && biggest.severity !== "Low" && <p className="mt-3 truncate text-[13px] text-ink-dim">{biggest.severity} changes · biggest drop: <span className="text-ink">{biggest.title}</span> ({biggest.vendor})</p>}
         </div>
         <div className="rounded-lg border border-line bg-surface p-5">
           <p className="text-sm text-ink-dim">Where the points went</p>

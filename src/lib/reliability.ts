@@ -122,3 +122,20 @@ const ACTIONS: Record<string, string> = {
 export function actionFor(item: ClassifiedItem): string | null {
   return ACTIONS[item.severity?.action_cost ?? ""] ?? null;
 }
+
+export type TimelineAlert = ScoredAlert & { published_at: string | null; title?: string };
+
+/**
+ * Score as it stood on each day of the window: computeScore over alerts published on or before that day.
+ * Days where no vendor has enough changes to be scored count as 100 (nothing has hit the stack yet).
+ */
+export function scoreTimeline(alerts: TimelineAlert[], weights: Record<string, number>, today: string, days = 90): { day: string; total: number }[] {
+  const end = new Date(`${today}T00:00:00Z`).getTime();
+  const out: { day: string; total: number }[] = [];
+  for (let i = days; i >= 0; i--) {
+    const day = new Date(end - i * 86400000).toISOString().slice(0, 10);
+    const upTo = alerts.filter((a) => a.published_at != null && a.published_at <= day);
+    out.push({ day, total: computeScore(upTo, weights).total ?? 100 });
+  }
+  return out;
+}

@@ -40,3 +40,14 @@ test("severity rules", () => {
   assert.equal(severityFor({ change_type: "new_capability" }), "Low");
   assert.equal(severityFor({ change_type: "breaking", days_to_impact: 0, priority: "P2" }), "High");
 });
+
+test("timeline starts at 100 and drops on the day changes are published", async () => {
+  const { scoreTimeline } = await import("./reliability.ts");
+  const a = (d, sev) => ({ vendor: "OpenAI", severity: sev, type: "Development", kind: "Breaking change", notice_days: null, published_at: d });
+  const t = scoreTimeline([a("2026-11-10", "Critical"), a("2026-11-10", "High"), a("2026-11-20", "Medium")], { OpenAI: 1 }, "2026-11-28", 90);
+  assert.equal(t.length, 91);
+  assert.equal(t[0].total, 100);
+  assert.equal(t.find((p) => p.day === "2026-11-19").total, 100); // only 2 changes: not scored yet
+  assert.equal(t.find((p) => p.day === "2026-11-20").total, 74);
+  assert.equal(t.at(-1).total, 74);
+});

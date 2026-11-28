@@ -17,3 +17,4 @@
 - Penalties and score thresholds live as constants in `src/lib/reliability.ts` so tuning never touches the formula.
 - Brand marks come from Simple Icons (CC0) path data in `src/components/brand/BrandIcon.tsx`; vendors without a mark fall back to a lettered tile, never a fabricated logo.
 - Historic vendor changelogs are seeded once into `changes` (watch kind `seed`, `classifier_output.source = "seed_rules"`, insert-only) so scans read stored history; scan and alert window is 90 days.
+- The Reliability trend is replayed from stored alerts (`scoreTimeline` in `src/lib/reliability.ts`) over the 90-day window, not from per-scan `scores` rows, so new workspaces see history immediately.
