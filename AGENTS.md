@@ -16,3 +16,4 @@
 - Workspace matching, severity and scoring are deterministic (`src/lib/reliability.ts`, tested); the LLM classifies each global change once, so per-user scans cost no AI calls.
 - Penalties and score thresholds live as constants in `src/lib/reliability.ts` so tuning never touches the formula.
 - Brand marks come from Simple Icons (CC0) path data in `src/components/brand/BrandIcon.tsx`; vendors without a mark fall back to a lettered tile, never a fabricated logo.
+- Historic vendor changelogs are seeded once into `changes` (watch kind `seed`, `classifier_output.source = "seed_rules"`, insert-only) so scans read stored history; scan and alert window is 90 days.

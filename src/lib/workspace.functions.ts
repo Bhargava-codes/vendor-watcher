@@ -33,7 +33,7 @@ export const getWorkspace = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const since = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    const since = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
     const [stack, owners, alerts, scores] = await Promise.all([
       supabase.from("stack_items").select("vendor, product, block").eq("workspace_id", userId),
       supabase.from("owners").select("type, email").eq("workspace_id", userId),

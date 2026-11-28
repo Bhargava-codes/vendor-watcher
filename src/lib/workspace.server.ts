@@ -5,7 +5,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { actionFor, classifyType, computeScore, deadlineLabel, matchProduct, severityFor, type ClassifiedItem, type ScoredAlert } from "./reliability";
 
 type Client = SupabaseClient<Database>;
-const WINDOW_DAYS = 30;
+const WINDOW_DAYS = 90;
 
 export async function runScan(supabase: Client, userId: string) {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

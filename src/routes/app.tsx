@@ -128,7 +128,7 @@ function SevPill({ sev }: { sev: string }) {
 function HowCalculated() {
   return (
     <div className="mt-3 max-w-xl rounded-lg border border-line bg-surface p-4 text-[13px] leading-5 text-ink-dim">
-      Each dependency starts at 100 and loses points for changes in the last 30 days: Critical −{PENALTY.Critical}, High −{PENALTY.High}, Medium −{PENALTY.Medium}, Low 0, plus −10 for a deprecation with under 30 days' notice. Your score is the average of dependency scores, weighted by how many of each vendor's products you use. Vendors with fewer than 3 changes are not scored. Resolving a change does not raise the score.
+      Each dependency starts at 100 and loses points for changes in the last 90 days: Critical −{PENALTY.Critical}, High −{PENALTY.High}, Medium −{PENALTY.Medium}, Low 0, plus −10 for a deprecation with under 30 days' notice. Your score is the average of dependency scores, weighted by how many of each vendor's products you use. Vendors with fewer than 3 changes are not scored. Resolving a change does not raise the score.
     </div>
   );
 }
@@ -201,13 +201,13 @@ function HomeView({ ws, onVendor }: { ws: Workspace; onVendor: () => void }) {
               </button>
             ))}
           </div>
-          <p className="mt-3 text-[13px] text-ink-dim">Based on {ws.alerts.length} changes to your stack in the last 30 days · <button onClick={() => setHow(!how)} className="text-brand">How it's calculated</button></p>
+          <p className="mt-3 text-[13px] text-ink-dim">Based on {ws.alerts.length} changes to your stack in the last 90 days · <button onClick={() => setHow(!how)} className="text-brand">How it's calculated</button></p>
         </div>
       </div>
       {how && <HowCalculated />}
       <p className="mt-3 text-[15px] text-ink"><b className="font-medium">{latest?.published_count ?? 0}</b> updates from your vendors <span className="text-ink-faint">→</span> <b className="font-medium">{ws.alerts.length}</b> touch the products you use <span className="text-ink-faint">→</span> <b className={cn("font-medium", critical > 0 && "text-p0")}>{critical}</b> hitting production now</p>
 
-      {ws.alerts.length === 0 && <p className="mt-9 rounded-lg border border-line bg-surface px-5 py-6 text-sm text-ink-dim">Nothing touched your stack in the last 30 days.</p>}
+      {ws.alerts.length === 0 && <p className="mt-9 rounded-lg border border-line bg-surface px-5 py-6 text-sm text-ink-dim">Nothing touched your stack in the last 90 days.</p>}
       {TYPES.map((t) => {
         const owner = ownerFor(ws, t);
         const rows = ws.alerts.filter((a) => a.type === t && a.severity !== "Low").sort((a, b) => SEVERITY_ORDER.indexOf(a.severity as Severity) - SEVERITY_ORDER.indexOf(b.severity as Severity));
@@ -245,7 +245,7 @@ function ReliabilityView({ ws }: { ws: Workspace }) {
         <div className="rounded-lg border border-line bg-surface p-5">
           <p className="text-sm text-ink-dim">Agent reliability</p>
           <p className="mt-2 leading-none text-ink">{latest?.total != null ? <><span className="text-[56px] font-normal">{latest.total}</span><span className="ml-1 text-xl text-ink-faint">/ 100</span></> : <span className="text-xl text-ink-dim">Not enough data yet</span>}</p>
-          <p className="mt-4 text-sm text-ink-dim">Based on {ws.alerts.length} changes · last 30 days</p>
+          <p className="mt-4 text-sm text-ink-dim">Based on {ws.alerts.length} changes · last 90 days</p>
           <button onClick={() => setHow(!how)} className="mt-1 text-sm text-brand">How it's calculated</button>
         </div>
         <div className="rounded-lg border border-line bg-surface p-5">

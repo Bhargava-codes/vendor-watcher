@@ -12,6 +12,7 @@ export const VENDORS: Record<BlockId, { name: string; popular?: boolean }[]> = {
     { name: "OpenAI", popular: true }, { name: "Anthropic", popular: true }, { name: "Google Gemini", popular: true },
     { name: "Mistral" }, { name: "Groq" }, { name: "AWS Bedrock" }, { name: "Azure OpenAI" }, { name: "Cohere" },
     { name: "Voyage" }, { name: "Sarvam AI" }, { name: "Krutrim" },
+    { name: "DeepSeek" }, { name: "xAI" }, { name: "Together AI" }, { name: "Fireworks AI" },
   ],
   data: [
     { name: "Pinecone", popular: true }, { name: "Supabase", popular: true }, { name: "LangChain / LangGraph", popular: true },
@@ -33,6 +34,11 @@ export const PRODUCTS: Record<string, string[]> = {
   ElevenLabs: ["Text to speech", "Conversational AI", "Speech to text", "Voice cloning"],
   Deepgram: ["Speech to text (Nova)", "Text to speech (Aura)", "Voice Agent API"],
   Vapi: ["Assistants API", "Phone numbers", "Webhooks"],
+  Mistral: ["Chat completions", "Codestral", "Embeddings", "Voxtral (audio)", "OCR"],
+  "Sarvam AI": ["Sarvam LLM", "Bulbul (text to speech)", "Saaras / Saarika (speech to text)", "Translate"],
+  Krutrim: ["Krutrim LLM API", "Krutrim Cloud"],
+  DeepSeek: ["Chat API", "Reasoner API"],
+  xAI: ["Grok API", "Image generation"],
 };
 
 export const OWNER_TYPES = [
