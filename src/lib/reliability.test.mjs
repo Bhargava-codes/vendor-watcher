@@ -38,4 +38,5 @@ test("severity rules", () => {
   assert.equal(severityFor({ change_type: "deprecation", days_to_impact: 20 }), "High");
   assert.equal(severityFor({ change_type: "pricing", days_to_impact: 60 }), "Medium");
   assert.equal(severityFor({ change_type: "new_capability" }), "Low");
+  assert.equal(severityFor({ change_type: "breaking", days_to_impact: 0, priority: "P2" }), "High");
 });

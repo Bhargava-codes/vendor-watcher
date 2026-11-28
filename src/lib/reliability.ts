@@ -46,7 +46,8 @@ export function severityFor(item: ClassifiedItem): Severity {
   const sev = item.severity ?? {};
   if (t === "new_capability" || t === "availability") return "Low";
   const immediate = sev.time_to_impact === "immediate" || sev.certainty === "confirmed_now" || (days != null && days <= 0);
-  if (immediate && (t === "breaking" || (t === "behaviour_change" && sev.failure_mode === "silent_regression"))) return "Critical";
+  const classifierAgrees = item.priority == null || item.priority === "P0";
+  if (immediate && classifierAgrees && (t === "breaking" || (t === "behaviour_change" && sev.failure_mode === "silent_regression"))) return "Critical";
   if (immediate) return "High";
   if (days != null) return days <= 30 ? "High" : "Medium";
   if (t === "deprecation" || t === "pricing" || t === "breaking") return "Medium";
