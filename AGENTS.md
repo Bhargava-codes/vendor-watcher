@@ -12,3 +12,4 @@
 - Keep stack-layer types, starter presets, and explicitly illustrative sample diffs in `src/lib/pipeline-data.ts` so future setup screens share one typed source of truth.
 - Keep database schema changes in Lovable Database-managed Drizzle migrations so repository history stays aligned with the applied database.
 - Accounts use Lovable Cloud managed OAuth via `@/integrations/lovable`, with session state shared through `AuthProvider` in the root route; private per-user data lives in `public.profiles`, auto-created by an auth trigger.
+- Keep the onboarding preview client-side until backend implementation is approved; clearly label simulated scan results so UI verification cannot be mistaken for live capture.

@@ -1,180 +1,118 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Check } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { MooringLogo } from "@/components/driftwatch/MooringLogo";
+import { Button } from "@/components/ui/button";
 import { BLOCKS, EMPTY_SETUP, OWNER_TYPES, PRODUCTS, VENDORS, loadSetup, saveSetup, selectedVendors, type BlockId, type SetupState } from "@/lib/mooring-setup";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/setup")({
-  head: () => ({
-    meta: [
-      { title: "Set up your stack — Mooring" },
-      { name: "description", content: "Tell Mooring which AI vendors and products you depend on, and who owns each kind of change." },
-      { property: "og:type", content: "website" },
-      { property: "og:title", content: "Set up your stack — Mooring" },
-      { property: "og:description", content: "Tell Mooring which AI vendors and products you depend on, and who owns each kind of change." },
-      { name: "twitter:card", content: "summary" },
-    ],
-  }),
+  head: () => ({ meta: [
+    { title: "Set up your stack — Mooring" },
+    { name: "description", content: "Choose your AI vendors, products and owners to set up your Mooring watch plan." },
+    { property: "og:type", content: "website" },
+    { property: "og:title", content: "Set up your stack — Mooring" },
+    { property: "og:description", content: "Choose your AI vendors, products and owners to set up your Mooring watch plan." },
+    { name: "twitter:card", content: "summary" },
+  ] }),
   component: Setup,
 });
 
-const STEPS = ["Building blocks", "Vendors", "Products", "Owners"];
-const SCAN = ["Reading vendor changelogs", "Diffing docs & pricing pages", "Scoring impact on your stack", "Computing reliability score"];
+const TITLES = ["What does your agent run on?", "Which vendors do you use?", "Which of their products do you use?", "Who should hear about what?"];
+const SUBTITLES = [
+  "Every AI agent is built from the same few building blocks. Tick the ones you use. You don't need to know versions or model IDs.",
+  "Tap the ones you recognise. Not listed? Type it in. You can always add more later.",
+  "Tap the products you rely on, so we only flag changes to those. Leave a vendor as it is and we'll watch all of its products.",
+  "We sort every relevant change by type. Tell us who owns each type, and we'll flag it straight to them. Leave any blank and it comes to you.",
+];
+const SCAN = ["214 updates published in the last 30 days", "11 of them touch the products you use", "9 need action · 3 are hitting production now", "Reliability score ready"];
+const PRIMARY = "h-9 rounded-md bg-brand px-5 text-xs font-normal text-primary-foreground shadow-none hover:bg-brand-hover";
+const CHIP = "h-auto min-h-7 rounded-full border px-2.5 py-1 text-[10px] font-normal shadow-none";
+const OWNERS = OWNER_TYPES.filter((owner) => owner.id !== "security");
 
 function Setup() {
   const navigate = useNavigate();
   const [s, setS] = useState<SetupState>(EMPTY_SETUP);
   const [step, setStep] = useState(0);
   const [scan, setScan] = useState(-1);
+  const [custom, setCustom] = useState<Partial<Record<BlockId, string>>>({});
   useEffect(() => setS(loadSetup()), []);
   useEffect(() => {
     if (scan < 0 || scan >= SCAN.length) return;
-    const t = setTimeout(() => setScan(scan + 1), 900);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setScan(scan + 1), 900);
+    return () => clearTimeout(timer);
   }, [scan]);
-
-  const toggle = <T,>(arr: T[], v: T) => (arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
+  const toggle = <T,>(arr: T[], value: T) => arr.includes(value) ? arr.filter((item) => item !== value) : [...arr, value];
   const vendors = selectedVendors(s);
   const canNext = step === 0 ? s.blocks.length > 0 : step === 1 ? vendors.length > 0 : true;
-
-  const finish = () => { const n = { ...s, completed: true }; saveSetup(n); setS(n); setScan(0); };
-
-  if (scan >= 0) {
-    const done = scan >= SCAN.length;
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-canvas p-6">
-        <div className="w-full max-w-md rounded-xl border border-line bg-surface p-8">
-          <MooringLogo />
-          <h1 className="mt-6 text-xl font-semibold text-ink">First scan</h1>
-          <p className="mt-1 text-sm text-ink-dim">Watching {vendors.length} vendors across your stack.</p>
-          <ul className="mt-6 space-y-3">
-            {SCAN.map((l, i) => (
-              <li key={l} className="flex items-center gap-3 text-sm">
-                <span className={cn("flex size-5 items-center justify-center rounded-full border", i < scan ? "border-brand bg-brand text-primary-foreground" : i === scan ? "animate-pulse border-brand" : "border-line")}>
-                  {i < scan && <Check className="size-3" />}
-                </span>
-                <span className={i <= scan ? "text-ink" : "text-ink-faint"}>{l}</span>
-              </li>
-            ))}
-          </ul>
-          <button disabled={!done} onClick={() => navigate({ to: "/app" })} className="mt-8 h-10 w-full rounded-lg bg-brand text-sm font-medium text-primary-foreground disabled:opacity-50">
-            {done ? "See my score" : "Scanning…"}
-          </button>
-        </div>
-      </main>
-    );
-  }
+  const finish = () => { const next = { ...s, completed: true }; saveSetup(next); setS(next); setScan(0); };
+  const addVendor = (block: BlockId) => {
+    const name = custom[block]?.trim();
+    if (!name) return;
+    setS({ ...s, vendors: { ...s.vendors, [block]: [...new Set([...s.vendors[block], name])] } });
+    setCustom({ ...custom, [block]: "" });
+  };
+  const done = scan >= SCAN.length;
 
   return (
     <main className="min-h-screen bg-canvas">
-      <header className="flex h-14 items-center justify-between border-b border-line bg-surface px-6">
-        <MooringLogo />
-        <span className="font-mono text-xs text-ink-faint">Step {step + 1} of 4</span>
-      </header>
-      <div className="mx-auto max-w-3xl p-6">
-        <ol className="mb-8 grid grid-cols-4 gap-2">
-          {STEPS.map((t, i) => (
-            <li key={t}>
-              <div className={cn("h-1 rounded-full", i <= step ? "bg-brand" : "bg-line")} />
-              <p className={cn("mt-2 text-xs", i === step ? "font-medium text-ink" : "text-ink-faint")}>{t}</p>
-            </li>
-          ))}
-        </ol>
-
-        {step === 0 && (
-          <Section title="What is your agent built from?" sub="Pick every layer you ship. You can change this later.">
-            <div className="grid gap-3 sm:grid-cols-3">
-              {BLOCKS.map((b) => {
-                const on = s.blocks.includes(b.id);
-                return (
-                  <button key={b.id} onClick={() => setS({ ...s, blocks: toggle(s.blocks, b.id) })} className={cn("rounded-xl border p-4 text-left transition-colors", on ? "border-brand bg-brand-soft" : "border-line bg-surface hover:border-ink-faint")}>
-                    <p className="font-medium text-ink">{b.title}</p>
-                    <p className="mt-1 text-sm text-ink-dim">{b.role}</p>
-                    <p className="mt-3 font-mono text-[11px] text-ink-faint">{b.examples}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </Section>
-        )}
-
-        {step === 1 && (
-          <Section title="Which vendors do you call?" sub="Popular picks are marked.">
-            {s.blocks.map((b: BlockId) => (
-              <div key={b} className="mb-5">
-                <p className="mb-2 text-xs font-medium uppercase tracking-wider text-ink-faint">{BLOCKS.find((x) => x.id === b)?.title}</p>
-                <div className="flex flex-wrap gap-2">
-                  {VENDORS[b].map((v) => {
-                    const on = s.vendors[b].includes(v.name);
-                    return (
-                      <button key={v.name} onClick={() => setS({ ...s, vendors: { ...s.vendors, [b]: toggle(s.vendors[b], v.name) } })} className={cn("rounded-full border px-3 py-1.5 text-sm", on ? "border-brand bg-brand text-primary-foreground" : "border-line bg-surface text-ink hover:border-ink-faint")}>
-                        {v.name}{v.popular && !on && <span className="ml-1 text-ink-faint">·</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </Section>
-        )}
-
-        {step === 2 && (
-          <Section title="Which products exactly?" sub="We only alert on what you use. Leave blank to watch everything.">
-            <div className="space-y-3">
-              {vendors.map((v) => (
-                <div key={v} className="rounded-xl border border-line bg-surface p-4">
-                  <p className="font-medium text-ink">{v}</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {(PRODUCTS[v] ?? ["All products"]).map((p) => {
-                      const cur = s.products[v] ?? [];
-                      const on = cur.includes(p);
-                      return (
-                        <button key={p} onClick={() => setS({ ...s, products: { ...s.products, [v]: toggle(cur, p) } })} className={cn("rounded-md border px-2.5 py-1 font-mono text-xs", on ? "border-brand bg-brand-soft text-brand" : "border-line text-ink-dim")}>
-                          {p}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Section>
-        )}
-
-        {step === 3 && (
-          <Section title="Who owns each kind of change?" sub="Mooring routes each alert to one person. Optional.">
-            <div className="space-y-3">
-              {OWNER_TYPES.map((o) => (
-                <div key={o.id} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4 sm:flex-row sm:items-center">
-                  <div className="flex-1">
-                    <p className="font-medium text-ink">{o.title}</p>
-                    <p className="text-sm text-ink-dim">{o.detail}</p>
-                  </div>
-                  <input value={s.owners[o.id] ?? ""} onChange={(e) => setS({ ...s, owners: { ...s.owners, [o.id]: e.target.value } })} placeholder={o.role + " email"} className="h-9 rounded-lg border border-line bg-canvas px-3 text-sm text-ink outline-none focus:border-brand sm:w-60" />
-                </div>
-              ))}
-            </div>
-          </Section>
-        )}
-
-        <div className="mt-8 flex justify-between">
-          <button onClick={() => setStep(step - 1)} disabled={step === 0} className="h-10 rounded-lg border border-line px-4 text-sm text-ink disabled:opacity-40">Back</button>
-          <button disabled={!canNext} onClick={() => (step === 3 ? finish() : setStep(step + 1))} className="h-10 rounded-lg bg-brand px-5 text-sm font-medium text-primary-foreground disabled:opacity-50">
-            {step === 3 ? "Run first scan" : "Continue"}
-          </button>
+      <header className="relative border-b border-line bg-surface">
+        <div className="mx-auto flex h-12 max-w-[720px] items-center justify-between gap-4 px-5 sm:px-0">
+          <MooringLogo className="gap-2 [&>span:first-child]:size-6 [&>span:first-child]:rounded-md [&>span:first-child>svg]:size-3.5 [&>span:nth-child(2)]:text-[10px] [&>span:nth-child(2)]:font-medium [&>span:nth-child(2)]:tracking-normal [&>span:last-child]:hidden" />
+          <span className="text-right font-mono text-[9px] text-ink-faint">{scan >= 0 ? "Setup complete" : `Step ${step + 1} of 4 · about 1 minute`}</span>
         </div>
-      </div>
-    </main>
-  );
-}
+        <div className="absolute -bottom-px left-0 h-0.5 bg-brand transition-all motion-reduce:transition-none" style={{ width: `${scan >= 0 ? 100 : (step + 1) * 25}%` }} />
+      </header>
 
-function Section({ title, sub, children }: { title: string; sub: string; children: React.ReactNode }) {
-  return (
-    <section>
-      <h1 className="text-2xl font-semibold text-ink">{title}</h1>
-      <p className="mb-6 mt-1 text-sm text-ink-dim">{sub}</p>
-      {children}
-    </section>
+      {scan >= 0 ? (
+        <section className="mx-auto max-w-[480px] px-5 pt-[60px] text-center">
+          <span className={cn("mx-auto flex size-10 items-center justify-center rounded-full", done ? "bg-ok/10 text-ok" : "bg-brand-soft text-brand")}><Check className="size-5" /></span>
+          <h1 className="mt-4 text-2xl font-medium text-ink">{done ? "Your reliability score is ready" : "Checking your agent stack"}</h1>
+          <p className="mx-auto mt-2 max-w-[410px] text-xs leading-5 text-ink-dim">9 changes need your team, and 3 are hitting production now. Each one is sorted by priority and sent to its owner.</p>
+          <ul className="mt-6 divide-y divide-line/40 rounded-lg border border-line bg-surface px-4 text-left" aria-live="polite">
+            {SCAN.map((label, i) => <li key={label} className="flex min-h-8 items-center gap-2.5 py-2 text-[10px]"><Check className={cn("size-3 shrink-0", i < scan ? "text-ok" : "text-ink-faint/40")} /><span className="flex-1 text-ink">{label}</span><span className={i < scan ? "text-ok" : "text-ink-faint"}>{i < scan ? "done" : i === scan ? "checking" : "waiting"}</span></li>)}
+          </ul>
+          <p className="mt-3"><span className="rounded-full bg-p1-soft px-2 py-1 font-mono text-[8px] text-p1">Sample numbers, not a real scan</span></p>
+          <div className="mx-4 mt-3 h-1 overflow-hidden rounded-full bg-line"><div className="h-full bg-brand transition-all motion-reduce:transition-none" style={{ width: `${(scan / SCAN.length) * 100}%` }} /></div>
+          <Button disabled={!done} onClick={() => navigate({ to: "/app" })} className={cn(PRIMARY, "mt-6")}>{done ? "See my score" : "Checking…"}</Button>
+        </section>
+      ) : (
+        <div className="mx-auto max-w-[720px] px-5 pb-12 pt-11 sm:px-0">
+          <h1 className="text-2xl font-medium text-ink">{TITLES[step]}</h1>
+          <p className="mb-5 mt-2 text-[11px] leading-5 text-ink-dim">{SUBTITLES[step]}</p>
+
+          {step === 0 && <div className="grid gap-3 sm:grid-cols-3">{BLOCKS.map((block) => {
+            const selected = s.blocks.includes(block.id);
+            return <Button key={block.id} variant="ghost" aria-pressed={selected} onClick={() => setS({ ...s, blocks: toggle(s.blocks, block.id) })} className={cn("relative flex h-[136px] flex-col items-start justify-start whitespace-normal rounded-lg border p-4 text-left shadow-none", selected ? "border-brand bg-brand-soft hover:bg-brand-soft" : "border-line bg-surface hover:bg-surface")}>
+              <span className="pr-7 text-[13px] font-normal text-ink">{block.title}</span>
+              <span className={cn("absolute right-4 top-4 flex size-[18px] items-center justify-center rounded border", selected ? "border-brand bg-brand text-primary-foreground" : "border-ink-faint/50")}>{selected && <Check className="size-3" />}</span>
+              <span className="text-[10px] font-normal leading-[15px] text-ink-dim">{block.role}</span>
+              <span className="mt-auto font-mono text-[8px] font-normal leading-[13px] text-ink-faint">{block.examples}</span>
+            </Button>;
+          })}</div>}
+
+          {step === 1 && <div className="space-y-3.5">{s.blocks.map((block) => {
+            const options = [...VENDORS[block], ...s.vendors[block].filter((name) => !VENDORS[block].some((v) => v.name === name)).map((name) => ({ name, popular: false }))];
+            return <section key={block} className="rounded-lg border border-line bg-surface p-4"><div className="mb-2 flex items-center justify-between"><h2 className="text-xs font-medium text-ink">{BLOCKS.find((b) => b.id === block)?.title}</h2><span className="text-[9px] text-ink-faint">{s.vendors[block].length} selected</span></div><div className="flex flex-wrap gap-1.5">{options.map((v) => {
+              const selected = s.vendors[block].includes(v.name);
+              return <Button key={v.name} variant="ghost" aria-pressed={selected} onClick={() => setS({ ...s, vendors: { ...s.vendors, [block]: toggle(s.vendors[block], v.name) } })} className={cn(CHIP, "gap-1", selected ? "border-brand bg-brand-soft text-brand hover:bg-brand-soft" : "border-line text-ink-dim hover:bg-canvas")}>{selected && <Check className="size-3" />}{v.name}{v.popular && <span className="text-[8px] text-p1">★ Popular</span>}</Button>;
+            })}</div><form onSubmit={(e) => { e.preventDefault(); addVendor(block); }} className="mt-2.5 flex gap-1.5"><input aria-label={`Another ${block} vendor`} value={custom[block] ?? ""} onChange={(e) => setCustom({ ...custom, [block]: e.target.value })} placeholder="Another vendor? Type its name" className="h-7 min-w-0 flex-1 rounded-full border border-dashed border-line bg-canvas px-2.5 text-[10px] outline-none focus:border-brand" /><Button type="submit" variant="ghost" className={cn(CHIP, "border-line text-brand")}>+ Add</Button></form></section>;
+          })}<aside className="rounded-lg border border-line bg-surface p-4"><p className="text-[9px] font-medium text-p1">DID YOU KNOW?</p><p className="mt-1 text-[13px] leading-5 text-ink">Sarvam AI recently made Sarvam-105B its only supported chat model. Every app still calling the 30B model has to migrate.</p><p className="mt-1.5 text-[10px] leading-4 text-ink-faint">A one-line changelog entry, easy to miss, that can break an agent in production. <span className="text-p1">Example from the design reference; not a live finding.</span></p></aside></div>}
+
+          {step === 2 && <div className="space-y-3">{vendors.map((vendor) => <section key={vendor} className="rounded-lg border border-line bg-surface p-4"><div className="flex justify-between gap-4"><h2 className="text-xs font-medium text-ink">{vendor}</h2><span className="text-[9px] text-ink-faint">{BLOCKS.find((b) => s.vendors[b.id].includes(vendor))?.title}</span></div><p className="mb-1.5 mt-2 text-[10px] text-ink-dim">Products you use</p><div className="flex flex-wrap gap-1.5">{(PRODUCTS[vendor] ?? ["All products"]).map((product) => {
+            const current = s.products[vendor] ?? [];
+            const selected = current.includes(product);
+            return <Button key={product} variant="ghost" aria-pressed={selected} onClick={() => setS({ ...s, products: { ...s.products, [vendor]: toggle(current, product) } })} className={cn(CHIP, "gap-1", selected ? "border-brand bg-brand-soft font-medium text-brand hover:bg-brand-soft" : "border-line text-ink-dim hover:bg-canvas")}>{selected && <Check className="size-3" />}{product}</Button>;
+          })}</div></section>)}</div>}
+
+          {step === 3 && <div className="divide-y divide-line rounded-lg border border-line bg-surface">{OWNERS.map((owner) => <div key={owner.id} className="grid gap-3 p-4 sm:grid-cols-2"><div><p className="text-[11px] font-medium text-ink">{owner.id === "pricing" ? "Pricing & usage limits" : owner.title}</p><p className="mt-1 text-[10px] leading-4 text-ink-faint">{owner.detail}</p></div><label className="block text-[9px] text-ink-faint">{owner.role}<input type="email" value={s.owners[owner.id] ?? ""} onChange={(e) => setS({ ...s, owners: { ...s.owners, [owner.id]: e.target.value } })} placeholder="teammate@company.com" className="mt-1 h-8 w-full rounded-md border border-line bg-canvas px-2.5 text-[10px] text-ink outline-none focus:border-brand" /></label></div>)}</div>}
+
+          <footer className="mt-5 flex items-center justify-between gap-3">
+            {step === 0 ? <p className="max-w-[250px] text-[10px] text-ink-faint">{s.blocks.length} of 3 selected: {BLOCKS.filter((block) => s.blocks.includes(block.id)).map((block) => block.title).join(", ")}</p> : <Button variant="outline" onClick={() => setStep(step - 1)} className="h-9 px-3 text-xs font-normal shadow-none"><ArrowLeft className="size-3" />Back</Button>}
+            <div className="flex items-center gap-3">{step === 3 && <Button variant="ghost" onClick={finish} className="text-xs font-normal text-ink-dim">Skip for now</Button>}<Button disabled={!canNext} onClick={() => step === 3 ? finish() : setStep(step + 1)} className={PRIMARY}>{step === 3 ? "Finish setup" : "Continue"}{step < 3 && <ArrowRight className="size-3" />}</Button></div>
+          </footer>
+        </div>
+      )}
+    </main>
   );
 }
