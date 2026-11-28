@@ -1,7 +1,12 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { Activity, Anchor, Boxes, ChevronRight, Home, MoreVertical, Plug, Send, SlidersHorizontal, Users } from "lucide-react";
-import { EMPTY_SETUP, loadSetup, type SetupState } from "@/lib/mooring-setup";
+import { useServerFn } from "@tanstack/react-start";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Activity, Anchor, Boxes, ChevronDown, ChevronRight, ExternalLink, Home, Plug, Send, SlidersHorizontal, Users } from "lucide-react";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { BrandIcon } from "@/components/brand/BrandIcon";
+import { getWorkspace, scanWorkspace, updateAlert } from "@/lib/workspace.functions";
+import { PENALTY, SEVERITY_ORDER, type Severity } from "@/lib/reliability";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -28,44 +33,66 @@ const NAV: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: "integrations", label: "Integrations", icon: Plug },
 ];
 
-type Sev = "Critical" | "High" | "Medium";
-type Row = { sev: Sev; title: string; kind: string; vendor: string; product: string; when: string };
-const GROUPS: { name: string; owner: string; rows: Row[] }[] = [
-  { name: "Development", owner: "Priya", rows: [
-    { sev: "Critical", title: "Agent run signature changed in a minor release", kind: "Breaking change", vendor: "LangChain / LangGraph", product: "LangGraph", when: "Before your next deploy" },
-    { sev: "High", title: "Embedding model retirement scheduled", kind: "Retirement", vendor: "OpenAI", product: "Embeddings", when: "In 30 days" },
-    { sev: "Medium", title: "API version sunset announced", kind: "API sunset", vendor: "Pinecone", product: "Serverless indexes", when: "In 90 days" },
-    { sev: "Medium", title: "Legacy memory module marked deprecated", kind: "Deprecation", vendor: "LangChain / LangGraph", product: "LangChain", when: "Next major release" },
-  ]},
-  { name: "Behavior", owner: "You", rows: [
-    { sev: "Critical", title: "Model alias now points to a newer model", kind: "Model repointed", vendor: "OpenAI", product: "Responses / Chat API", when: "Today" },
-    { sev: "Critical", title: "Default output format for tool calls changed", kind: "Default changed", vendor: "Anthropic", product: "Tool use", when: "This week" },
-  ]},
-  { name: "Pricing", owner: "Finance", rows: [
-    { sev: "High", title: "Rate limits changed on the batch tier", kind: "Rate limit change", vendor: "Anthropic", product: "Message Batches", when: "Next billing cycle" },
-    { sev: "High", title: "Read-unit pricing updated for serverless", kind: "Price change", vendor: "Pinecone", product: "Serverless indexes", when: "Next billing cycle" },
-    { sev: "Medium", title: "Embeddings price change takes effect next month", kind: "Price change", vendor: "OpenAI", product: "Embeddings", when: "Before next month" },
-  ]},
-];
-const VENDOR_SCORES = [
-  { name: "OpenAI", score: 74, mix: "1·1·1", hit: "Model alias now points to a newer model", products: "2 products" },
-  { name: "Anthropic", score: 77, mix: "1·1·0", hit: "Default output format for tool calls changed", products: "2 products" },
-  { name: "LangGraph", score: 82, mix: "1·0·1", hit: "Agent run signature changed in a minor release", products: "1 product" },
-  { name: "Pinecone", score: 89, mix: "0·1·1", hit: "Read-unit pricing updated for serverless", products: "1 product" },
-];
-const PEOPLE = ["Priya", "You", "Finance", "Arjun"];
+type Workspace = Awaited<ReturnType<typeof getWorkspace>>;
+type Alert = Workspace["alerts"][number];
+const TYPES = ["Development", "Behavior", "Pricing"] as const;
+
+function useWorkspace() {
+  const { user } = useAuth();
+  const fetchWs = useServerFn(getWorkspace);
+  return useQuery({ queryKey: ["workspace", user?.id], queryFn: () => fetchWs(), enabled: !!user });
+}
+
+function ownerFor(ws: Workspace, type: string) {
+  return ws.owners.find((o) => o.type === type)?.email || "you";
+}
+
+function vendorRows(ws: Workspace) {
+  const latest = ws.scores[0];
+  const per = latest?.per_vendor ?? {};
+  const names = [...new Set(ws.stack.map((s) => s.vendor))];
+  return names
+    .map((name) => {
+      const v = per[name];
+      const alerts = ws.alerts.filter((a) => a.vendor === name);
+      const worst = [...alerts].sort((a, b) => SEVERITY_ORDER.indexOf(a.severity as Severity) - SEVERITY_ORDER.indexOf(b.severity as Severity))[0];
+      const products = ws.stack.filter((s) => s.vendor === name && s.product).map((s) => s.product!);
+      return { name, score: v?.score ?? null, critical: v?.critical ?? 0, high: v?.high ?? 0, medium: v?.medium ?? 0, hit: worst?.title ?? "—", products: products.length ? products.join(", ") : "All products" };
+    })
+    .sort((a, b) => (a.score ?? 101) - (b.score ?? 101));
+}
 
 function AppShell() {
-  const [s, setS] = useState<SetupState>(EMPTY_SETUP);
   const [tab, setTab] = useState<Tab>("home");
-  useEffect(() => setS(loadSetup()), []);
-  void s;
+  const { user, loading } = useAuth();
+  const ws = useWorkspace();
+  const data = ws.data;
+  const openCount = data?.alerts.filter((a) => a.status === "open" && a.severity !== "Low").length ?? 0;
+  const vendorCount = new Set(data?.stack.map((s) => s.vendor)).size;
+  const productCount = data?.stack.filter((s) => s.product).length ?? 0;
+  const lastCheck = data?.scores[0]?.computed_at;
 
   const navBtn = (id: Tab, label: string, Icon: typeof Home) => (
     <Button variant="ghost" key={id} aria-current={tab === id ? "page" : undefined} onClick={() => setTab(id)} className={cn("flex h-9 w-full justify-start gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-normal hover:bg-nav-active hover:text-nav-foreground", tab === id ? "bg-nav-active font-medium text-nav-foreground" : "text-nav-muted")}>
       <Icon className="size-4 shrink-0" strokeWidth={1.6} /><span>{label}</span>
-      {id === "home" && <span className="ml-auto flex size-[18px] items-center justify-center rounded-full bg-brand text-[10px] text-primary-foreground">9</span>}
+      {id === "home" && openCount > 0 && <span className="ml-auto flex size-[18px] items-center justify-center rounded-full bg-brand text-[10px] text-primary-foreground">{openCount}</span>}
     </Button>
+  );
+
+  let content: React.ReactNode;
+  if (!loading && !user) content = <Simple title="Sign in to see your stack" sub="Your reliability score is private to your account."><Link to="/auth" className="text-sm text-brand">Sign in →</Link></Simple>;
+  else if (ws.isError) content = <Simple title="Could not load your workspace" sub="Please try again in a moment."><button onClick={() => ws.refetch()} className="text-sm text-brand">Retry</button></Simple>;
+  else if (!data) content = <p className="text-sm text-ink-dim">Loading your workspace…</p>;
+  else if (!data.stack.length) content = <Simple title="Set up your agent stack" sub="Pick the vendors and products you use, and Mooring scores them for you."><Link to="/setup" className="text-sm text-brand">Start setup →</Link></Simple>;
+  else content = (
+    <>
+      {tab === "home" && <HomeView ws={data} onVendor={() => setTab("reliability")} />}
+      {tab === "reliability" && <ReliabilityView ws={data} />}
+      {tab === "integrations" && <IntegrationsView />}
+      {tab === "stack" && <Simple title="Agent stack" sub="The vendors and products Mooring watches for you."><div className="grid gap-3 sm:grid-cols-2">{vendorRows(data).map((v) => <div key={v.name} className="flex items-start gap-3 rounded-lg border border-line bg-surface p-4"><BrandIcon name={v.name} /><div className="min-w-0"><p className="font-medium text-ink">{v.name}</p><p className="mt-1 text-sm text-ink-dim">{v.products}</p></div></div>)}</div><Link to="/setup" className="mt-4 inline-block text-sm text-brand">Edit stack →</Link></Simple>}
+      {tab === "team" && <Simple title="Team & routing" sub="Each kind of change goes to one owner. Blank goes to you."><div className="divide-y divide-line rounded-lg border border-line bg-surface">{TYPES.map((t) => <div key={t} className="flex justify-between px-5 py-3.5 text-sm"><span className="font-medium text-ink">{t}</span><span className="text-ink-dim">{ownerFor(data, t)}</span></div>)}</div></Simple>}
+      {tab === "settings" && <Simple title="Settings" sub="Workspace and account."><Link to="/setup" className="text-sm text-brand">Edit stack setup →</Link></Simple>}
+    </>
   );
 
   return (
@@ -79,7 +106,7 @@ function AppShell() {
         <div className="mt-auto">
           {navBtn("settings", "Settings", SlidersHorizontal)}
           <div className="mt-3 border-t border-nav-foreground/10 px-3.5 pt-3 text-xs leading-5 text-nav-muted">
-            Watching 4 vendors · 6 products<br />Last check: 12 min ago
+            Watching {vendorCount} vendors · {productCount} products<br />Last check: {lastCheck ? `${Math.max(0, Math.round((Date.now() - new Date(lastCheck).getTime()) / 60000))} min ago` : "not yet"}
           </div>
         </div>
       </aside>
@@ -88,81 +115,128 @@ function AppShell() {
         <select value={tab} onChange={(e) => setTab(e.target.value as Tab)} className="mb-4 rounded-md border border-line bg-surface px-2 py-1 text-sm md:hidden">
           {[...NAV, { id: "settings" as Tab, label: "Settings" }].map((n) => <option key={n.id} value={n.id}>{n.label}</option>)}
         </select>
-        {tab === "home" && <HomeView />}
-        {tab === "reliability" && <ReliabilityView />}
-        {tab === "integrations" && <IntegrationsView />}
-        {tab === "stack" && <Simple title="Agent stack" sub="The vendors and products Mooring watches for you."><div className="grid gap-3 sm:grid-cols-2">{VENDOR_SCORES.map((v) => <div key={v.name} className="rounded-lg border border-line bg-surface p-4"><p className="font-medium text-ink">{v.name}</p><p className="mt-1 text-sm text-ink-dim">{v.products}</p></div>)}</div></Simple>}
-        {tab === "team" && <Simple title="Team & routing" sub="Each kind of change goes to one owner."><div className="divide-y divide-line rounded-lg border border-line bg-surface">{GROUPS.map((g) => <div key={g.name} className="flex justify-between px-5 py-3.5 text-sm"><span className="font-medium text-ink">{g.name}</span><span className="text-ink-dim">{g.owner}</span></div>)}</div></Simple>}
-        {tab === "settings" && <Simple title="Settings" sub="Workspace and account."><Link to="/setup" className="text-sm text-brand">Edit stack setup →</Link></Simple>}
+        {content}
       </main>
     </div>
   );
 }
 
-function SevPill({ sev }: { sev: Sev }) {
+function SevPill({ sev }: { sev: string }) {
   return <span className={cn("inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium", sev === "Critical" ? "bg-p0 text-primary-foreground" : "bg-p3-soft text-ink-dim")}>{sev}</span>;
 }
 
-function HomeView() {
-  const [sent, setSent] = useState<Record<string, string>>({});
-  const [open, setOpen] = useState<string | null>(null);
+function HowCalculated() {
   return (
-    <div>
-      <p className="text-[15px] text-ink-dim">Your agent's reliability</p>
-      <div className="mt-2 flex flex-wrap items-start gap-x-10 gap-y-3">
-        <p className="leading-none text-ink"><span className="text-[64px] font-normal">79</span><span className="ml-1 text-xl text-ink-faint">/ 100</span></p>
-        <div>
-          <div className="flex flex-wrap gap-2">
-            {VENDOR_SCORES.map((v) => (
-              <button key={v.name} className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-ink">
-                {v.name} <span className="font-medium tabular-nums">{v.score}</span><ChevronRight className="size-3 text-ink-faint" />
-              </button>
-            ))}
-          </div>
-          <p className="mt-3 text-[13px] text-ink-dim">Based on 11 changes to your stack in the last 30 days · <button className="text-brand">How it's calculated</button></p>
-        </div>
-      </div>
-      <p className="mt-3 text-[15px] text-ink"><b className="font-medium">214</b> updates from your vendors <span className="text-ink-faint">→</span> <b className="font-medium">11</b> touch the products you use <span className="text-ink-faint">→</span> <b className="font-medium text-p0">3</b> hitting production now</p>
-
-      {GROUPS.map((g) => (
-        <section key={g.name} className="mt-9">
-          <p className="mb-2.5 text-[15px]"><span className="font-medium text-ink">{g.name}</span> <span className="ml-1.5 text-ink-faint">{g.rows.length}</span> <span className="text-ink-dim">· sent to {g.owner}</span></p>
-          <div className="divide-y divide-line rounded-lg border border-line bg-surface">
-            {g.rows.map((r) => {
-              const id = r.title;
-              return (
-                <div key={id} className="relative flex flex-wrap items-center gap-2 px-3 py-3.5 sm:flex-nowrap sm:gap-4">
-                  <div className="w-[80px] shrink-0"><SevPill sev={r.sev} /></div>
-                  <div className="min-w-0 flex-[1_1_180px]">
-                    <p className="text-[15px] font-normal text-ink">{r.title}</p>
-                    <p className="mt-0.5 text-[13px] text-ink-dim"><span className="text-ink">{r.kind}</span> · {r.vendor} · {r.product}</p>
-                  </div>
-                  <p className="hidden w-28 text-right text-[13px] leading-tight text-ink-dim sm:block">{r.when}</p>
-                  <button onClick={() => setOpen(open === id ? null : id)} className="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink hover:bg-canvas">
-                    <Send className="size-3.5" />{sent[id] ? `Sent · ${sent[id]}` : "Send"}
-                  </button>
-                  <button aria-label="More" className="p-1 text-ink-dim"><MoreVertical className="size-4" /></button>
-                  {open === id && (
-                    <div className="absolute right-10 top-full z-10 mt-1 w-44 rounded-lg border border-line bg-surface p-1 shadow-lg">
-                      {PEOPLE.map((p) => (
-                        <button key={p} onClick={() => { setSent({ ...sent, [id]: p }); setOpen(null); }} className={cn("block w-full rounded-md px-3 py-1.5 text-left text-sm hover:bg-canvas", p === g.owner ? "font-medium text-brand" : "text-ink")}>{p}{p === g.owner && " · owner"}</button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      ))}
-      <p className="mt-6 px-4 text-[13px] text-ink-dim">+ 2 low, no action needed</p>
+    <div className="mt-3 max-w-xl rounded-lg border border-line bg-surface p-4 text-[13px] leading-5 text-ink-dim">
+      Each dependency starts at 100 and loses points for changes in the last 30 days: Critical −{PENALTY.Critical}, High −{PENALTY.High}, Medium −{PENALTY.Medium}, Low 0, plus −10 for a deprecation with under 30 days' notice. Your score is the average of dependency scores, weighted by how many of each vendor's products you use. Vendors with fewer than 3 changes are not scored. Resolving a change does not raise the score.
     </div>
   );
 }
 
-function ReliabilityView() {
-  const pts = [100, 100, 99, 99, 99, 98, 98, 98, 92, 92, 91, 91, 91, 89, 88, 86, 79];
-  const path = pts.map((p, i) => `${(i / (pts.length - 1)) * 300},${(100 - p) * 4 + 10}`).join(" L");
+function HomeView({ ws, onVendor }: { ws: Workspace; onVendor: () => void }) {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const update = useServerFn(updateAlert);
+  const rescan = useServerFn(scanWorkspace);
+  const mutate = useMutation({ mutationFn: update, onSuccess: () => qc.invalidateQueries({ queryKey: ["workspace", user?.id] }) });
+  const scan = useMutation({ mutationFn: () => rescan(), onSuccess: () => qc.invalidateQueries({ queryKey: ["workspace", user?.id] }) });
+  const [menu, setMenu] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [how, setHow] = useState(false);
+  const [showLow, setShowLow] = useState(false);
+  const latest = ws.scores[0];
+  const vendors = vendorRows(ws).filter((v) => v.score != null);
+  const critical = ws.alerts.filter((a) => a.severity === "Critical").length;
+  const people = [...new Set(["you", ...ws.owners.map((o) => o.email).filter((e): e is string => !!e)])];
+  const lows = ws.alerts.filter((a) => a.severity === "Low");
+
+  const row = (r: Alert, owner: string) => (
+    <div key={r.id} className={cn("relative", r.status === "resolved" && "opacity-60")}>
+      <div className="flex flex-wrap items-center gap-2 px-3 py-3.5 sm:flex-nowrap sm:gap-4">
+        <div className="w-[80px] shrink-0"><SevPill sev={r.severity} /></div>
+        <button onClick={() => setExpanded(expanded === r.id ? null : r.id)} className="min-w-0 flex-[1_1_180px] text-left">
+          <p className="text-[15px] font-normal text-ink">{r.title}</p>
+          <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-ink-dim"><BrandIcon name={r.vendor} className="size-4 rounded border-0" /><span className="text-ink">{r.kind}</span> · {r.vendor}{r.product ? ` · ${r.product}` : ""}</p>
+        </button>
+        <p className="hidden w-28 text-right text-[13px] leading-tight text-ink-dim sm:block">{r.deadline}</p>
+        <button onClick={() => setMenu(menu === r.id ? null : r.id)} className="flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink hover:bg-canvas">
+          <Send className="size-3.5" />{r.sent_to ? `Assigned to ${r.sent_to}` : "Send"}
+        </button>
+        <button aria-label="Details" onClick={() => setExpanded(expanded === r.id ? null : r.id)} className="p-1 text-ink-dim"><ChevronDown className={cn("size-4 transition-transform", expanded === r.id && "rotate-180")} /></button>
+      </div>
+      {menu === r.id && (
+        <div className="absolute right-10 top-12 z-10 w-56 rounded-lg border border-line bg-surface p-1 shadow-lg">
+          {people.map((p) => (
+            <button key={p} onClick={() => { mutate.mutate({ data: { id: r.id, sent_to: p } }); setMenu(null); }} className={cn("block w-full truncate rounded-md px-3 py-1.5 text-left text-sm hover:bg-canvas", p === owner ? "font-medium text-brand" : "text-ink")}>{p}{p === owner && " · Suggested"}</button>
+          ))}
+        </div>
+      )}
+      {expanded === r.id && (
+        <div className="space-y-2 border-t border-line bg-canvas/50 px-5 py-4 text-sm">
+          {r.why && <p className="text-ink"><span className="text-ink-dim">Why it matters: </span>{r.why}</p>}
+          {r.action && <p className="text-ink"><span className="text-ink-dim">Do this: </span>{r.action}</p>}
+          <div className="flex flex-wrap items-center gap-4 pt-1">
+            <button onClick={() => mutate.mutate({ data: { id: r.id, status: r.status === "resolved" ? "open" : "resolved" } })} className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink hover:bg-canvas">{r.status === "resolved" ? "Undo resolve" : "Mark resolved"}</button>
+            {r.source_url && <a href={r.source_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-brand">Source <ExternalLink className="size-3" /></a>}
+            {r.published_at && <span className="text-xs text-ink-faint">Published {r.published_at}</span>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[15px] text-ink-dim">Your agent's reliability</p>
+        <button onClick={() => scan.mutate()} disabled={scan.isPending} className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-ink hover:bg-canvas disabled:opacity-60">{scan.isPending ? "Checking…" : "Check again"}</button>
+      </div>
+      <div className="mt-2 flex flex-wrap items-start gap-x-10 gap-y-3">
+        <p className="leading-none text-ink">{latest?.total != null ? <><span className="text-[64px] font-normal">{latest.total}</span><span className="ml-1 text-xl text-ink-faint">/ 100</span></> : <span className="text-[28px] font-normal text-ink-dim">Not enough data yet</span>}</p>
+        <div>
+          <div className="flex flex-wrap gap-2">
+            {vendors.map((v) => (
+              <button key={v.name} onClick={onVendor} className="flex items-center gap-2 rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink hover:bg-canvas">
+                <BrandIcon name={v.name} className="size-5 rounded border-0" />{v.name} <span className="font-medium tabular-nums">{v.score}</span><ChevronRight className="size-3 text-ink-faint" />
+              </button>
+            ))}
+          </div>
+          <p className="mt-3 text-[13px] text-ink-dim">Based on {ws.alerts.length} changes to your stack in the last 30 days · <button onClick={() => setHow(!how)} className="text-brand">How it's calculated</button></p>
+        </div>
+      </div>
+      {how && <HowCalculated />}
+      <p className="mt-3 text-[15px] text-ink"><b className="font-medium">{latest?.published_count ?? 0}</b> updates from your vendors <span className="text-ink-faint">→</span> <b className="font-medium">{ws.alerts.length}</b> touch the products you use <span className="text-ink-faint">→</span> <b className={cn("font-medium", critical > 0 && "text-p0")}>{critical}</b> hitting production now</p>
+
+      {ws.alerts.length === 0 && <p className="mt-9 rounded-lg border border-line bg-surface px-5 py-6 text-sm text-ink-dim">Nothing touched your stack in the last 30 days.</p>}
+      {TYPES.map((t) => {
+        const owner = ownerFor(ws, t);
+        const rows = ws.alerts.filter((a) => a.type === t && a.severity !== "Low").sort((a, b) => SEVERITY_ORDER.indexOf(a.severity as Severity) - SEVERITY_ORDER.indexOf(b.severity as Severity));
+        if (!rows.length) return null;
+        return (
+          <section key={t} className="mt-9">
+            <p className="mb-2.5 text-[15px]"><span className="font-medium text-ink">{t}</span> <span className="ml-1.5 text-ink-faint">{rows.length}</span> <span className="text-ink-dim">· sent to {owner}</span></p>
+            <div className="divide-y divide-line rounded-lg border border-line bg-surface">{rows.map((r) => row(r, owner))}</div>
+          </section>
+        );
+      })}
+      {lows.length > 0 && (
+        <div className="mt-6">
+          <button onClick={() => setShowLow(!showLow)} className="px-4 text-[13px] text-ink-dim hover:text-ink">+ {lows.length} low, no action needed</button>
+          {showLow && <div className="mt-2 divide-y divide-line rounded-lg border border-line bg-surface">{lows.map((r) => row(r, ownerFor(ws, r.type)))}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReliabilityView({ ws }: { ws: Workspace }) {
+  const [how, setHow] = useState(false);
+  const latest = ws.scores[0];
+  const history = [...ws.scores].reverse().filter((s) => s.total != null);
+  const pts = history.map((s) => s.total as number);
+  const path = pts.length > 1 ? pts.map((p, i) => `${(i / (pts.length - 1)) * 300},${(100 - p) * 0.8 + 10}`).join(" L") : "";
+  const vendors = vendorRows(ws);
+  const perType = latest?.per_type ?? {};
   return (
     <div>
       <h1 className="text-[28px] font-medium text-ink">Reliability</h1>
@@ -170,45 +244,44 @@ function ReliabilityView() {
       <div className="mt-6 grid gap-3 lg:grid-cols-[1fr_2fr_1fr]">
         <div className="rounded-lg border border-line bg-surface p-5">
           <p className="text-sm text-ink-dim">Agent reliability</p>
-          <p className="mt-2 leading-none text-ink"><span className="text-[56px] font-normal">79</span><span className="ml-1 text-xl text-ink-faint">/ 100</span></p>
-          <p className="mt-4 text-sm text-ink-dim">Based on 11 changes · last 30 days</p>
-          <button className="mt-1 text-sm text-brand">How it's calculated</button>
+          <p className="mt-2 leading-none text-ink">{latest?.total != null ? <><span className="text-[56px] font-normal">{latest.total}</span><span className="ml-1 text-xl text-ink-faint">/ 100</span></> : <span className="text-xl text-ink-dim">Not enough data yet</span>}</p>
+          <p className="mt-4 text-sm text-ink-dim">Based on {ws.alerts.length} changes · last 30 days</p>
+          <button onClick={() => setHow(!how)} className="mt-1 text-sm text-brand">How it's calculated</button>
         </div>
         <div className="rounded-lg border border-line bg-surface p-5">
-          <p className="text-sm text-ink-dim">Score over the last 30 days</p>
-          <svg viewBox="0 0 300 100" className="mt-3 h-24 w-full" preserveAspectRatio="none">
-            <path d="M0,10 H300 M0,50 H300 M0,90 H300" className="stroke-line" strokeWidth="0.5" />
-            <path d={`M${path}`} fill="none" className="stroke-ink" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
-            <circle cx={(8 / 16) * 300} cy={42} r="2.5" className="fill-p0" />
-            <circle cx="299" cy={(100 - 79) * 4 + 10} r="2.5" className="fill-p0" />
-          </svg>
-          <div className="mt-1 flex justify-between text-xs text-ink-faint"><span>30 days ago · 100</span><span>Today · 79</span></div>
-          <p className="mt-2 flex items-center gap-2 text-[13px] text-ink"><span className="size-2 rounded-full bg-p0" />Critical changes · biggest drop: Model alias now points to a newer model (OpenAI)</p>
+          <p className="text-sm text-ink-dim">Score over your checks</p>
+          {path ? (
+            <svg viewBox="0 0 300 100" className="mt-3 h-24 w-full" preserveAspectRatio="none">
+              <path d="M0,10 H300 M0,50 H300 M0,90 H300" className="stroke-line" strokeWidth="0.5" />
+              <path d={`M${path}`} fill="none" className="stroke-ink" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
+            </svg>
+          ) : <p className="mt-6 text-sm text-ink-dim">The trend appears after your next check.</p>}
+          <div className="mt-1 flex justify-between text-xs text-ink-faint"><span>{history[0] ? `First check · ${history[0].total}` : ""}</span><span>{latest?.total != null ? `Latest · ${latest.total}` : ""}</span></div>
         </div>
         <div className="rounded-lg border border-line bg-surface p-5">
           <p className="text-sm text-ink-dim">Where the points went</p>
           <div className="mt-2 divide-y divide-line">
-            {[["Development", "Priya", 29], ["Behavior", "You", 30], ["Pricing", "Finance", 19]].map(([n, o, v]) => (
-              <div key={n} className="flex justify-between py-2.5"><div><p className="text-[15px] text-ink">{n}</p><p className="text-xs text-ink-dim">sent to {o}</p></div><span className="text-[15px] font-medium text-ink">−{v}</span></div>
+            {TYPES.map((t) => (
+              <div key={t} className="flex justify-between py-2.5"><div><p className="text-[15px] text-ink">{t}</p><p className="text-xs text-ink-dim">sent to {ownerFor(ws, t)}</p></div><span className="text-[15px] font-medium text-ink">−{perType[t] ?? 0}</span></div>
             ))}
           </div>
         </div>
       </div>
+      {how && <HowCalculated />}
       <h2 className="mb-3 mt-8 text-[17px] font-medium text-ink">Dependencies · riskiest first</h2>
       <div className="overflow-x-auto rounded-lg border border-line bg-surface">
         <table className="w-full min-w-[760px] text-sm">
           <thead><tr className="border-b border-line text-left text-[11px] font-medium uppercase tracking-normal text-ink-faint">
-            <th className="px-5 py-3 font-medium">Dependency</th><th className="font-medium">Score</th><th className="font-medium">Crit · High · Med</th><th className="font-medium">Biggest hit</th><th className="font-medium">Products</th><th />
+            <th className="px-5 py-3 font-medium">Dependency</th><th className="font-medium">Score</th><th className="font-medium">Crit · High · Med</th><th className="font-medium">Biggest hit</th><th className="font-medium">Products</th>
           </tr></thead>
           <tbody className="divide-y divide-line">
-            {VENDOR_SCORES.map((v) => (
+            {vendors.map((v) => (
               <tr key={v.name}>
-                <td className="px-5 py-3.5"><div className="flex items-center gap-3"><span className="size-7 rounded-md border border-dashed border-line" /><span className="text-[15px] text-ink">{v.name}</span></div></td>
-                <td><div className="flex items-center gap-3"><span className="w-6 text-[15px] tabular-nums text-ink">{v.score}</span><div className="h-1.5 w-28 rounded-full bg-canvas"><div className="h-full rounded-full bg-ink-dim" style={{ width: `${v.score}%` }} /></div></div></td>
-                <td className="text-ink-dim">{v.mix}</td>
-                <td className="text-ink-dim">{v.hit}</td>
-                <td className="text-ink-dim">{v.products}</td>
-                <td className="pr-5 text-ink-faint"><ChevronRight className="size-3.5" /></td>
+                <td className="px-5 py-3.5"><div className="flex items-center gap-3"><BrandIcon name={v.name} /><span className="text-[15px] text-ink">{v.name}</span></div></td>
+                <td>{v.score != null ? <div className="flex items-center gap-3"><span className="w-6 text-[15px] tabular-nums text-ink">{v.score}</span><div className="h-1.5 w-28 rounded-full bg-canvas"><div className="h-full rounded-full bg-ink-dim" style={{ width: `${v.score}%` }} /></div></div> : <span className="text-ink-faint">Not scored</span>}</td>
+                <td className="text-ink-dim">{v.critical}·{v.high}·{v.medium}</td>
+                <td className="max-w-[280px] truncate pr-4 text-ink-dim">{v.hit}</td>
+                <td className="pr-5 text-ink-dim">{v.products}</td>
               </tr>
             ))}
           </tbody>
@@ -236,7 +309,7 @@ function IntegrationsView() {
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {sec.items.map(([n, d, cta]) => (
               <div key={n} className={cn("flex flex-col rounded-lg border border-line bg-surface p-4", !cta && "opacity-60")}>
-                <div className="flex items-center gap-3"><span className="size-7 rounded-md border border-dashed border-line" /><span className="text-[15px] font-medium text-ink">{n}</span></div>
+                <div className="flex items-center gap-3"><BrandIcon name={n} /><span className="text-[15px] font-medium text-ink">{n}</span></div>
                 <p className="mt-3 flex-1 text-sm text-ink-dim">{d}</p>
                 {cta ? <button className="mt-3 self-start rounded-lg border border-line px-3.5 py-1.5 text-sm font-medium text-ink hover:bg-canvas">{cta}</button> : <p className="mt-4 text-xs text-ink-faint">Coming soon</p>}
               </div>

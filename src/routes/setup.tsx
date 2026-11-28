@@ -1,4 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { saveStack, scanWorkspace } from "@/lib/workspace.functions";
 import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { MooringLogo } from "@/components/driftwatch/MooringLogo";
@@ -25,7 +28,9 @@ const SUBTITLES = [
   "Tap the products you rely on, so we only flag changes to those. Leave a vendor as it is and we'll watch all of its products.",
   "We sort every relevant change by type. Tell us who owns each type, and we'll flag it straight to them. Leave any blank and it comes to you.",
 ];
-const SCAN = ["214 updates published in the last 30 days", "11 of them touch the products you use", "9 need action · 3 are hitting production now", "Reliability score ready"];
+const SCAN = ["Reading their docs and changelogs from the last 30 days", "Checking each change against the products you use", "Sorting by priority and sending to the right owner", "Computing your reliability score"];
+type ScanResult = { vendorCount: number; published: number; touching: number; needAction: number; prodNow: number; score: number | null };
+const OWNER_TYPE: Record<string, "Development" | "Behavior" | "Pricing"> = { breaking: "Development", behavior: "Behavior", pricing: "Pricing" };
 const PRIMARY = "h-9 rounded-md bg-brand px-5 text-xs font-normal text-primary-foreground shadow-none hover:bg-brand-hover";
 const CHIP = "h-auto min-h-7 rounded-full border px-2.5 py-1 text-[10px] font-normal shadow-none";
 const OWNERS = OWNER_TYPES.filter((owner) => owner.id !== "security");
@@ -36,16 +41,37 @@ function Setup() {
   const [step, setStep] = useState(0);
   const [scan, setScan] = useState(-1);
   const [custom, setCustom] = useState<Partial<Record<BlockId, string>>>({});
+  const [result, setResult] = useState<ScanResult | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const save = useServerFn(saveStack);
+  const runScan = useServerFn(scanWorkspace);
   useEffect(() => setS(loadSetup()), []);
-  useEffect(() => {
-    if (scan < 0 || scan >= SCAN.length) return;
-    const timer = setTimeout(() => setScan(scan + 1), 900);
-    return () => clearTimeout(timer);
-  }, [scan]);
   const toggle = <T,>(arr: T[], value: T) => arr.includes(value) ? arr.filter((item) => item !== value) : [...arr, value];
   const vendors = selectedVendors(s);
   const canNext = step === 0 ? s.blocks.length > 0 : step === 1 ? vendors.length > 0 : true;
-  const finish = () => { const next = { ...s, completed: true }; saveSetup(next); setS(next); setScan(0); };
+  const finish = async () => {
+    const next = { ...s, completed: true };
+    saveSetup(next);
+    setS(next);
+    if (!user) { navigate({ to: "/auth" }); return; }
+    setScanError(null);
+    setScan(0);
+    try {
+      const items = next.blocks.flatMap((block) => next.vendors[block].flatMap((vendor): { block: string; vendor: string; product: string | null }[] => {
+        const chosen = next.products[vendor] ?? [];
+        return chosen.length ? chosen.map((product) => ({ block, vendor, product })) : [{ block, vendor, product: null }];
+      }));
+      const owners = Object.entries(next.owners).filter(([id]) => OWNER_TYPE[id]).map(([id, email]) => ({ type: OWNER_TYPE[id]!, email: email.trim() || null }));
+      await save({ data: { items, owners } });
+      setScan(1);
+      const r = await runScan();
+      setResult(r);
+      setScan(SCAN.length);
+    } catch {
+      setScanError("The scan could not finish. Your stack is saved, so you can retry or open Home.");
+    }
+  };
   const addVendor = (block: BlockId) => {
     const name = custom[block]?.trim();
     if (!name) return;
@@ -67,14 +93,14 @@ function Setup() {
       {scan >= 0 ? (
         <section className="mx-auto max-w-[480px] px-5 pt-[60px] text-center">
           <span className={cn("mx-auto flex size-10 items-center justify-center rounded-full", done ? "bg-ok/10 text-ok" : "bg-brand-soft text-brand")}><Check className="size-5" /></span>
-          <h1 className="mt-4 text-2xl font-medium text-ink">{done ? "Your reliability score is ready" : "Checking your agent stack"}</h1>
-          <p className="mx-auto mt-2 max-w-[410px] text-xs leading-5 text-ink-dim">9 changes need your team, and 3 are hitting production now. Each one is sorted by priority and sent to its owner.</p>
+          <h1 className="mt-4 text-2xl font-medium text-ink">{done ? "Your reliability score is ready" : "Running your first scan"}</h1>
+          <p className="mx-auto mt-2 max-w-[410px] text-xs leading-5 text-ink-dim">{result ? (result.touching ? `${result.needAction} changes need your team, and ${result.prodNow} are hitting production now. Each one is sorted by priority and sent to its owner.` : "Nothing touched your stack in the last 30 days.") : `Checking ${vendors.length} vendors for changes that affect your stack, then computing your reliability score. This can take a minute.`}</p>
           <ul className="mt-6 divide-y divide-line/40 rounded-lg border border-line bg-surface px-4 text-left" aria-live="polite">
-            {SCAN.map((label, i) => <li key={label} className="flex min-h-8 items-center gap-2.5 py-2 text-[10px]"><Check className={cn("size-3 shrink-0", i < scan ? "text-ok" : "text-ink-faint/40")} /><span className="flex-1 text-ink">{label}</span><span className={i < scan ? "text-ok" : "text-ink-faint"}>{i < scan ? "done" : i === scan ? "checking" : "waiting"}</span></li>)}
+            {SCAN.map((generic, i) => { const label = result ? [`${result.published} updates published in the last 30 days`, `${result.touching} of them touch the products you use`, `${result.needAction} need action · ${result.prodNow} are hitting production now`, result.score == null ? "Not enough data yet for a score" : "Reliability score ready"][i]! : generic; return <li key={generic} className="flex min-h-8 items-center gap-2.5 py-2 text-[10px]"><Check className={cn("size-3 shrink-0", i < scan ? "text-ok" : "text-ink-faint/40")} /><span className="flex-1 text-ink">{label}</span><span className={i < scan ? "text-ok" : "text-ink-faint"}>{i < scan ? "done" : i === scan ? "checking" : "waiting"}</span></li>; })}
           </ul>
-          <p className="mt-3"><span className="rounded-full bg-p1-soft px-2 py-1 font-mono text-[8px] text-p1">Sample numbers, not a real scan</span></p>
+          {scanError && <p role="alert" className="mt-3 text-[11px] text-p0">{scanError} <button onClick={finish} className="text-brand underline">Retry</button></p>}
           <div className="mx-4 mt-3 h-1 overflow-hidden rounded-full bg-line"><div className="h-full bg-brand transition-all motion-reduce:transition-none" style={{ width: `${(scan / SCAN.length) * 100}%` }} /></div>
-          <Button disabled={!done} onClick={() => navigate({ to: "/app" })} className={cn(PRIMARY, "mt-6")}>{done ? "See my score" : "Checking…"}</Button>
+          <Button disabled={!done && !scanError} onClick={() => navigate({ to: "/app" })} className={cn(PRIMARY, "mt-6")}>{done ? "See my score" : "Checking…"}</Button>
         </section>
       ) : (
         <div className="mx-auto max-w-[720px] px-5 pb-12 pt-11 sm:px-0">

@@ -1,0 +1,1 @@
+ALTER TABLE public.scores ADD COLUMN published_count integer NOT NULL DEFAULT 0;

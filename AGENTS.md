@@ -12,4 +12,7 @@
 - Keep stack-layer types, starter presets, and explicitly illustrative sample diffs in `src/lib/pipeline-data.ts` so future setup screens share one typed source of truth.
 - Keep database schema changes in Lovable Database-managed Drizzle migrations so repository history stays aligned with the applied database.
 - Accounts use Lovable Cloud managed OAuth via `@/integrations/lovable`, with session state shared through `AuthProvider` in the root route; private per-user data lives in `public.profiles`, auto-created by an auth trigger.
-- Keep the onboarding preview client-side until backend implementation is approved; clearly label simulated scan results so UI verification cannot be mistaken for live capture.
+- Workspace = the signed-in user (`workspace_id = auth.uid()`) in `stack_items`, `owners`, `alerts`, `scores`; owner-only RLS keeps it private without a membership table until teams exist.
+- Workspace matching, severity and scoring are deterministic (`src/lib/reliability.ts`, tested); the LLM classifies each global change once, so per-user scans cost no AI calls.
+- Penalties and score thresholds live as constants in `src/lib/reliability.ts` so tuning never touches the formula.
+- Brand marks come from Simple Icons (CC0) path data in `src/components/brand/BrandIcon.tsx`; vendors without a mark fall back to a lettered tile, never a fabricated logo.

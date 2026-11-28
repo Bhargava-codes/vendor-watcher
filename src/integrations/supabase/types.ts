@@ -14,6 +14,83 @@ export type Database = {
   }
   public: {
     Tables: {
+      alerts: {
+        Row: {
+          action: string | null
+          change_id: string
+          created_at: string
+          deadline: string | null
+          id: string
+          item_index: number
+          kind: string
+          notice_days: number | null
+          product: string | null
+          published_at: string | null
+          remind_at: string | null
+          sent_to: string | null
+          severity: string
+          source_url: string | null
+          status: string
+          title: string
+          type: string
+          vendor: string
+          why: string | null
+          workspace_id: string
+        }
+        Insert: {
+          action?: string | null
+          change_id: string
+          created_at?: string
+          deadline?: string | null
+          id?: string
+          item_index?: number
+          kind: string
+          notice_days?: number | null
+          product?: string | null
+          published_at?: string | null
+          remind_at?: string | null
+          sent_to?: string | null
+          severity: string
+          source_url?: string | null
+          status?: string
+          title: string
+          type: string
+          vendor: string
+          why?: string | null
+          workspace_id: string
+        }
+        Update: {
+          action?: string | null
+          change_id?: string
+          created_at?: string
+          deadline?: string | null
+          id?: string
+          item_index?: number
+          kind?: string
+          notice_days?: number | null
+          product?: string | null
+          published_at?: string | null
+          remind_at?: string | null
+          sent_to?: string | null
+          severity?: string
+          source_url?: string | null
+          status?: string
+          title?: string
+          type?: string
+          vendor?: string
+          why?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alerts_change_id_fkey"
+            columns: ["change_id"]
+            isOneToOne: false
+            referencedRelation: "changes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       changes: {
         Row: {
           classifier_output: Json | null
@@ -72,6 +149,30 @@ export type Database = {
           },
         ]
       }
+      owners: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          type: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          type: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          type?: string
+          workspace_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -96,6 +197,39 @@ export type Database = {
           id?: string
           preferences?: Json
           updated_at?: string
+        }
+        Relationships: []
+      }
+      scores: {
+        Row: {
+          change_count: number
+          computed_at: string
+          id: string
+          per_type: Json
+          per_vendor: Json
+          published_count: number
+          total: number | null
+          workspace_id: string
+        }
+        Insert: {
+          change_count?: number
+          computed_at?: string
+          id?: string
+          per_type?: Json
+          per_vendor?: Json
+          published_count?: number
+          total?: number | null
+          workspace_id: string
+        }
+        Update: {
+          change_count?: number
+          computed_at?: string
+          id?: string
+          per_type?: Json
+          per_vendor?: Json
+          published_count?: number
+          total?: number | null
+          workspace_id?: string
         }
         Relationships: []
       }
@@ -136,6 +270,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      stack_items: {
+        Row: {
+          added_via: string
+          block: string
+          created_at: string
+          id: string
+          product: string | null
+          vendor: string
+          workspace_id: string
+        }
+        Insert: {
+          added_via?: string
+          block: string
+          created_at?: string
+          id?: string
+          product?: string | null
+          vendor: string
+          workspace_id: string
+        }
+        Update: {
+          added_via?: string
+          block?: string
+          created_at?: string
+          id?: string
+          product?: string | null
+          vendor?: string
+          workspace_id?: string
+        }
+        Relationships: []
       }
       usage_manifest: {
         Row: {

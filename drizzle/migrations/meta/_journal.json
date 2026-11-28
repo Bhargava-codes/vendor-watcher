@@ -22,6 +22,20 @@
       "when": 1795762997231,
       "tag": "0002_public_landing_change_highlights",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795857795060,
+      "tag": "0003_mooring_workspace_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795857971709,
+      "tag": "0004_scores_published_count",
+      "breakpoints": true
     }
   ]
 }
